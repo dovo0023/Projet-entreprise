@@ -1,7 +1,8 @@
-import { AlertTriangle, ChevronRight, Search, Smartphone, TrendingDown, TrendingUp, Users } from 'lucide-react'
-import { useState } from 'react'
+import { AlertTriangle, Check, ChevronRight, Search, Smartphone, TrendingDown, TrendingUp, UserPlus, Users, X } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PatientAvatar } from '../../pro/ProLayout'
+import { usePro } from '../../pro/ProContext'
 import { useDisplayPatients } from '../../pro/useDisplayPatients'
 import { computeAdherenceTrend } from '../../data/patients'
 import type { Goal } from '../../types'
@@ -15,7 +16,11 @@ const GOAL_LABEL: Record<Goal, string> = {
 export default function ProDashboard() {
   const navigate = useNavigate()
   const patients = useDisplayPatients()
+  const { addPatientByCode } = usePro()
   const [query, setQuery] = useState('')
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [code, setCode] = useState('')
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null)
 
   const atRisk = patients.filter((p) => p.riskFlags.length > 0)
   const avgAdherence = Math.round(
@@ -24,23 +29,79 @@ export default function ProDashboard() {
 
   const filtered = patients.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()))
 
+  function handleAddPatient(e: FormEvent) {
+    e.preventDefault()
+    const result = addPatientByCode(code)
+    if (!result.success) {
+      setFeedback({ ok: false, text: 'Code invalide. Vérifiez le code partagé par votre patient depuis son espace « Progression ».' })
+      return
+    }
+    setFeedback({
+      ok: true,
+      text: result.alreadyAdded ? `${result.patientName} est déjà dans votre portefeuille.` : `${result.patientName} a été ajouté(e) à votre portefeuille.`,
+    })
+    setCode('')
+  }
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-extrabold text-ink">Votre portefeuille patients</h1>
           <p className="text-[14px] text-ink-soft mt-1">Repérez qui décroche avant qu’il ne soit trop tard.</p>
         </div>
-        <div className="relative">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-soft/40" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher un patient…"
-            className="pl-9 pr-4 py-2.5 rounded-2xl border border-black/10 bg-white text-[13.5px] outline-none focus:border-leaf-500 w-64"
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-soft/40" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher un patient…"
+              className="pl-9 pr-4 py-2.5 rounded-2xl border border-black/10 bg-white text-[13.5px] outline-none focus:border-leaf-500 w-56"
+            />
+          </div>
+          <button
+            onClick={() => {
+              setInviteOpen((o) => !o)
+              setFeedback(null)
+            }}
+            className={`tap flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[13px] font-bold ${
+              inviteOpen ? 'bg-black/5 text-ink-soft' : 'bg-ink text-cream'
+            }`}
+          >
+            {inviteOpen ? <X size={15} /> : <UserPlus size={15} />}
+            {inviteOpen ? 'Annuler' : 'Ajouter un patient'}
+          </button>
         </div>
       </div>
+
+      {inviteOpen && (
+        <form onSubmit={handleAddPatient} className="fade-up bg-white rounded-3xl border border-black/5 p-5 mb-6 flex items-end gap-3">
+          <label className="flex-1 flex flex-col gap-1.5">
+            <span className="text-[12px] font-bold text-ink-soft">Code de partage du patient</span>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Ex : NF-72K9"
+              className="rounded-2xl border border-black/10 px-4 py-2.5 text-[14px] font-mono tracking-wide outline-none focus:border-leaf-500"
+            />
+          </label>
+          <button type="submit" className="tap px-5 py-2.5 rounded-2xl bg-leaf-500 text-white font-bold text-[13px] shrink-0">
+            Lier le patient
+          </button>
+        </form>
+      )}
+
+      {feedback && (
+        <div
+          className={`flex items-center gap-2 rounded-2xl px-4 py-3 mb-6 text-[13px] font-semibold ${
+            feedback.ok ? 'bg-leaf-50 text-leaf-700' : 'bg-berry-100 text-berry-500'
+          }`}
+        >
+          {feedback.ok ? <Check size={15} /> : <AlertTriangle size={15} />}
+          {feedback.text}
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="bg-white rounded-3xl border border-black/5 p-5">

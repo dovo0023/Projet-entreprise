@@ -1,4 +1,4 @@
-import { Copy } from 'lucide-react'
+import { UserPlus } from 'lucide-react'
 
 export default function ProAccount() {
   return (
@@ -14,16 +14,15 @@ export default function ProAccount() {
       </div>
 
       <div className="bg-white rounded-3xl border border-black/5 p-6">
-        <p className="text-[13px] font-bold text-ink-soft/70 uppercase tracking-wide mb-3">Inviter un nouveau patient</p>
-        <p className="text-[13px] text-ink-soft mb-4">
-          Partagez ce code : votre patient l’entre dans son espace « Progression » pour lier son suivi à votre tableau de bord.
-        </p>
-        <div className="flex items-center justify-between bg-black/[0.03] rounded-2xl px-4 py-3">
-          <span className="font-mono font-bold text-ink text-[15px] tracking-wider">NF-72K9</span>
-          <button className="tap w-8 h-8 rounded-full bg-white flex items-center justify-center">
-            <Copy size={13} className="text-ink-soft" />
-          </button>
+        <div className="flex items-center gap-2 mb-3">
+          <UserPlus size={16} className="text-leaf-600" />
+          <p className="text-[13px] font-bold text-ink-soft/70 uppercase tracking-wide">Comment ajouter un patient</p>
         </div>
+        <p className="text-[13px] text-ink-soft leading-relaxed">
+          Chaque patient génère son propre code depuis son espace « Progression » dans l’app mobile, et vous le transmet
+          (SMS, en consultation…). Rendez-vous sur <strong>Patients</strong> puis <strong>« Ajouter un patient »</strong> pour
+          entrer ce code : son suivi (planning, observance, poids) apparaît alors immédiatement dans votre tableau de bord.
+        </p>
       </div>
     </div>
   )

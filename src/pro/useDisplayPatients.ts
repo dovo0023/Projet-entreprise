@@ -5,19 +5,18 @@ import type { PatientSummary } from '../types'
 import { usePro } from './ProContext'
 
 /**
- * Superpose les données réelles du compte B2C (profil, cibles, consommation du jour)
- * sur la fiche patiente de démonstration liée à l'app, et les éventuelles prescriptions
- * ajustées par le praticien pour les autres patients, pour que le portail reflète en
- * direct ce que voit chaque patient.
+ * Superpose les données réelles du compte B2C (profil, cibles, consommation du jour, messages)
+ * sur la fiche patiente de démonstration liée à l'app, et les éventuelles prescriptions ajustées
+ * par le praticien pour les autres patients. Ne renvoie que les patients déjà ajoutés au
+ * portefeuille du praticien (voir ProContext.addPatientByCode).
  */
 export function useDisplayPatients(): PatientSummary[] {
-  const { profile, targets, consumed } = useApp()
-  const { messagesByPatient, prescriptionOverrides } = usePro()
+  const { profile, targets, consumed, messages: liveMessages } = useApp()
+  const { messagesByPatient, prescriptionOverrides, portfolioPatientIds } = usePro()
 
   return useMemo(
     () =>
-      PATIENTS.map((p) => {
-        const messages = messagesByPatient[p.id] ?? p.messages
+      PATIENTS.filter((p) => portfolioPatientIds.includes(p.id)).map((p) => {
         if (p.linkedToApp) {
           return {
             ...p,
@@ -26,12 +25,13 @@ export function useDisplayPatients(): PatientSummary[] {
             allergens: profile.allergens,
             targets,
             actualToday: consumed,
-            messages,
+            messages: liveMessages,
           }
         }
+        const messages = messagesByPatient[p.id] ?? p.messages
         const override = prescriptionOverrides[p.id]
         return override ? { ...p, goal: override.goal, allergens: override.allergens, messages } : { ...p, messages }
       }),
-    [profile, targets, consumed, messagesByPatient, prescriptionOverrides],
+    [profile, targets, consumed, liveMessages, messagesByPatient, prescriptionOverrides, portfolioPatientIds],
   )
 }

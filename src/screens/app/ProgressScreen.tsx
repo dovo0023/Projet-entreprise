@@ -1,17 +1,38 @@
-import { ArrowUpRight, Copy, MessageCircle, Scale, TrendingDown } from 'lucide-react'
+import { ArrowUpRight, Check, Copy, MessageCircle, Scale, Send, TrendingDown } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ADHERENCE_HISTORY, WEIGHT_HISTORY } from '../../data/mock'
+import { PATIENT_SHARE_CODE, useApp } from '../../context/AppContext'
 import { Button, Card, SectionTitle } from '../../components/ui'
 
 export default function ProgressScreen() {
   const navigate = useNavigate()
+  const { messages, sendMessage } = useApp()
   const [weightInput, setWeightInput] = useState('')
   const [logged, setLogged] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [messageText, setMessageText] = useState('')
+  const [copied, setCopied] = useState(false)
   const lastWeight = WEIGHT_HISTORY[WEIGHT_HISTORY.length - 1].weight
   const firstWeight = WEIGHT_HISTORY[0].weight
   const delta = (lastWeight - firstWeight).toFixed(1)
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(PATIENT_SHARE_CODE)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Presse-papier indisponible (permissions navigateur) : le code reste affichable et copiable manuellement.
+    }
+  }
+
+  function handleSend() {
+    if (!messageText.trim()) return
+    sendMessage('patient', messageText.trim())
+    setMessageText('')
+  }
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar">
@@ -103,17 +124,58 @@ export default function ProgressScreen() {
               <p className="font-bold text-ink text-[14px]">Dr. Elise Marchand</p>
               <p className="text-[12px] text-ink-soft/60">Diététicienne référente</p>
             </div>
-            <button className="tap w-9 h-9 rounded-full bg-black/5 flex items-center justify-center">
+            <button
+              onClick={() => setChatOpen((o) => !o)}
+              aria-label="Ouvrir la messagerie"
+              className="tap w-9 h-9 rounded-full bg-black/5 flex items-center justify-center relative"
+            >
               <MessageCircle size={16} className="text-ink-soft" />
+              {messages.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-berry-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  {messages.length}
+                </span>
+              )}
             </button>
           </div>
+
+          {chatOpen && (
+            <div className="fade-up pt-1 border-t border-black/5">
+              <div className="flex flex-col gap-2.5 max-h-56 overflow-y-auto my-3 pr-1">
+                {messages.map((m, i) => (
+                  <div key={i} className={`flex ${m.from === 'patient' ? 'justify-end' : 'justify-start'}`}>
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-[13px] ${
+                        m.from === 'patient' ? 'bg-leaf-500 text-white' : 'bg-black/[0.04] text-ink'
+                      }`}
+                    >
+                      <p>{m.text}</p>
+                      <p className={`text-[10px] mt-1 ${m.from === 'patient' ? 'text-white/70' : 'text-ink-soft/50'}`}>{m.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                  placeholder="Écrire à votre praticien…"
+                  className="flex-1 rounded-2xl border border-black/10 px-3.5 py-2 text-[13px] outline-none focus:border-leaf-500"
+                />
+                <button onClick={handleSend} className="tap w-9 h-9 rounded-full bg-leaf-500 text-white flex items-center justify-center shrink-0" aria-label="Envoyer">
+                  <Send size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between bg-black/[0.03] rounded-2xl px-4 py-3">
             <div>
               <p className="text-[11px] font-bold text-ink-soft/50 uppercase">Code de partage</p>
-              <p className="font-mono font-bold text-ink text-[14px] tracking-wider">NF-72K9</p>
+              <p className="font-mono font-bold text-ink text-[14px] tracking-wider">{PATIENT_SHARE_CODE}</p>
             </div>
-            <button className="tap w-8 h-8 rounded-full bg-white flex items-center justify-center">
-              <Copy size={13} className="text-ink-soft" />
+            <button onClick={copyCode} className="tap w-8 h-8 rounded-full bg-white flex items-center justify-center" aria-label="Copier le code">
+              {copied ? <Check size={13} className="text-leaf-600" /> : <Copy size={13} className="text-ink-soft" />}
             </button>
           </div>
         </Card>

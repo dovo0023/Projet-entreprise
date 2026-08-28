@@ -1,5 +1,5 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
-import type { MacroTargets, Meal, PlannerConstraints, ShoppingItem, UserProfile } from '../types'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import type { ChatMessage, MacroTargets, Meal, PlannerConstraints, ShoppingItem, UserProfile } from '../types'
 import { computeWeekStats, generateWeekPlan, RECIPE_COST_MAP, replaceMealInPlan, type WeekStats } from '../engine/planner'
 import { consolidateIngredients } from '../engine/shoppingConsolidator'
 
@@ -21,6 +21,36 @@ export const DEFAULT_CONSTRAINTS: PlannerConstraints = {
   maxPrepTime: null,
   weeklyBudget: null,
   macroFocus: 'equilibre',
+}
+
+export const PATIENT_SHARE_CODE = 'NF-72K9'
+
+const DEFAULT_MESSAGES: ChatMessage[] = [
+  { from: 'patient', text: 'Bonjour Dr Marchand, le menu de cette semaine me convient très bien !', time: 'Lun 09:14' },
+  { from: 'praticien', text: 'Super Camille, continuez ainsi. On garde le cap sur -350 kcal/j.', time: 'Lun 10:02' },
+]
+
+const STORAGE_KEY = 'nutriflow_b2c_state_v1'
+
+interface PersistedState {
+  onboarded: boolean
+  profile: UserProfile
+  constraints: PlannerConstraints
+  weekPlan: Meal[]
+  consumedMealIds: string[]
+  consumed: MacroTargets
+  shoppingList: ShoppingItem[]
+  sentToDrive: boolean
+  messages: ChatMessage[]
+}
+
+function loadPersisted(): Partial<PersistedState> | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
 }
 
 function activityFactor(level: UserProfile['activityLevel']) {
@@ -73,35 +103,62 @@ interface AppState {
   toggleShoppingItem: (id: string) => void
   sentToDrive: boolean
   sendToDrive: () => void
+
+  messages: ChatMessage[]
+  sendMessage: (from: ChatMessage['from'], text: string) => void
 }
 
 const AppContext = createContext<AppState | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [onboarded, setOnboarded] = useState(false)
-  const [profile, setProfileState] = useState<UserProfile>(DEFAULT_PROFILE)
-  const [constraints, setConstraintsState] = useState<PlannerConstraints>(DEFAULT_CONSTRAINTS)
+  const [persisted] = useState(() => loadPersisted())
+
+  const [onboarded, setOnboarded] = useState(persisted?.onboarded ?? false)
+  const [profile, setProfileState] = useState<UserProfile>(persisted?.profile ?? DEFAULT_PROFILE)
+  const [constraints, setConstraintsState] = useState<PlannerConstraints>(persisted?.constraints ?? DEFAULT_CONSTRAINTS)
 
   const targets = useMemo(() => computeTargets(profile), [profile])
 
   const [initial] = useState(() => {
-    const plan = generateWeekPlan(DEFAULT_PROFILE, computeTargets(DEFAULT_PROFILE), DEFAULT_CONSTRAINTS)
+    if (persisted?.weekPlan?.length) {
+      return {
+        plan: persisted.weekPlan,
+        shoppingList: persisted.shoppingList ?? consolidateIngredients(persisted.weekPlan),
+        consumedMealIds: persisted.consumedMealIds ?? [],
+        consumed: persisted.consumed ?? { kcal: 0, protein: 0, carbs: 0, fat: 0 },
+      }
+    }
+    const baseProfile = persisted?.profile ?? DEFAULT_PROFILE
+    const baseConstraints = persisted?.constraints ?? DEFAULT_CONSTRAINTS
+    const plan = generateWeekPlan(baseProfile, computeTargets(baseProfile), baseConstraints)
     const breakfast = plan.find((m) => m.day === 1 && m.slot === 'petit-dejeuner')
-    const shoppingList = consolidateIngredients(plan)
-    return { plan, breakfast, shoppingList }
+    return {
+      plan,
+      shoppingList: consolidateIngredients(plan),
+      consumedMealIds: breakfast ? [breakfast.id] : [],
+      consumed: breakfast
+        ? { kcal: breakfast.kcal, protein: breakfast.protein, carbs: breakfast.carbs, fat: breakfast.fat }
+        : { kcal: 0, protein: 0, carbs: 0, fat: 0 },
+    }
   })
 
   const [weekPlan, setWeekPlan] = useState<Meal[]>(initial.plan)
-  const [consumedMealIds, setConsumedMealIds] = useState<string[]>(initial.breakfast ? [initial.breakfast.id] : [])
-  const [consumed, setConsumed] = useState<MacroTargets>(
-    initial.breakfast
-      ? { kcal: initial.breakfast.kcal, protein: initial.breakfast.protein, carbs: initial.breakfast.carbs, fat: initial.breakfast.fat }
-      : { kcal: 0, protein: 0, carbs: 0, fat: 0 },
-  )
+  const [consumedMealIds, setConsumedMealIds] = useState<string[]>(initial.consumedMealIds)
+  const [consumed, setConsumed] = useState<MacroTargets>(initial.consumed)
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(initial.shoppingList)
-  const [sentToDrive, setSentToDrive] = useState(false)
+  const [sentToDrive, setSentToDrive] = useState(persisted?.sentToDrive ?? false)
+  const [messages, setMessages] = useState<ChatMessage[]>(persisted?.messages ?? DEFAULT_MESSAGES)
 
   const weekStats = useMemo(() => computeWeekStats(weekPlan, targets, constraints, RECIPE_COST_MAP), [weekPlan, targets, constraints])
+
+  useEffect(() => {
+    try {
+      const payload: PersistedState = { onboarded, profile, constraints, weekPlan, consumedMealIds, consumed, shoppingList, sentToDrive, messages }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+    } catch {
+      // Stockage indisponible (navigation privée, quota) : la session continue simplement en mémoire.
+    }
+  }, [onboarded, profile, constraints, weekPlan, consumedMealIds, consumed, shoppingList, sentToDrive, messages])
 
   function setProfile(p: Partial<UserProfile>) {
     setProfileState((prev) => ({ ...prev, ...p }))
@@ -170,6 +227,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSentToDrive(true)
   }
 
+  function sendMessage(from: ChatMessage['from'], text: string) {
+    setMessages((prev) => [...prev, { from, text, time: 'À l’instant' }])
+  }
+
   return (
     <AppContext.Provider
       value={{
@@ -191,6 +252,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         toggleShoppingItem,
         sentToDrive,
         sendToDrive,
+        messages,
+        sendMessage,
       }}
     >
       {children}
