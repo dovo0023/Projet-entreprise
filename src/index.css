@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-cream: #faf8f3;
+  --color-ink: #1c2321;
+  --color-ink-soft: #4b5563;
+
+  --color-leaf-50: #f0faf3;
+  --color-leaf-100: #dcf5e3;
+  --color-leaf-200: #b3e9c3;
+  --color-leaf-400: #4bb877;
+  --color-leaf-500: #2f9d5f;
+  --color-leaf-600: #23824c;
+  --color-leaf-700: #1e6640;
+
+  --color-clementine-100: #ffead2;
+  --color-clementine-400: #ff9d42;
+  --color-clementine-500: #f7822a;
+
+  --color-berry-100: #fde8ec;
+  --color-berry-400: #ef6b8b;
+  --color-berry-500: #e14f74;
+}
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  background: #e9e4da;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.tap {
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+.tap:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-up {
+  animation: fade-up 320ms ease both;
+}
