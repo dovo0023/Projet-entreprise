@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
-import type { MacroTargets, ShoppingItem, UserProfile } from '../types'
-import { SHOPPING_LIST } from '../data/mock'
+import type { MacroTargets, Meal, PlannerConstraints, ShoppingItem, UserProfile } from '../types'
+import { computeWeekStats, generateWeekPlan, RECIPE_COST_MAP, replaceMealInPlan, type WeekStats } from '../engine/planner'
+import { consolidateIngredients } from '../engine/shoppingConsolidator'
 
 export const DEFAULT_PROFILE: UserProfile = {
   firstName: 'Camille',
@@ -14,6 +15,12 @@ export const DEFAULT_PROFILE: UserProfile = {
   allergens: [],
   duoMode: false,
   plan: 'Starter',
+}
+
+export const DEFAULT_CONSTRAINTS: PlannerConstraints = {
+  maxPrepTime: null,
+  weeklyBudget: null,
+  macroFocus: 'equilibre',
 }
 
 function activityFactor(level: UserProfile['activityLevel']) {
@@ -39,15 +46,29 @@ export function computeTargets(p: UserProfile): MacroTargets {
   return { kcal, protein, carbs, fat }
 }
 
+function mergeShoppingChecks(newItems: ShoppingItem[], prevItems: ShoppingItem[]): ShoppingItem[] {
+  const checkedNames = new Set(prevItems.filter((i) => i.checked).map((i) => i.name.toLowerCase()))
+  return newItems.map((i) => (checkedNames.has(i.name.toLowerCase()) ? { ...i, checked: true } : i))
+}
+
 interface AppState {
   onboarded: boolean
   profile: UserProfile
   setProfile: (p: Partial<UserProfile>) => void
   completeOnboarding: () => void
   targets: MacroTargets
+
+  weekPlan: Meal[]
+  constraints: PlannerConstraints
+  setConstraints: (c: Partial<PlannerConstraints>) => void
+  regenerateWeek: () => void
+  replaceMeal: (mealId: string) => void
+  weekStats: WeekStats
+
   consumedMealIds: string[]
   toggleMealConsumed: (mealId: string, kcal: number, protein: number, carbs: number, fat: number) => void
   consumed: MacroTargets
+
   shoppingList: ShoppingItem[]
   toggleShoppingItem: (id: string) => void
   sentToDrive: boolean
@@ -59,12 +80,28 @@ const AppContext = createContext<AppState | null>(null)
 export function AppProvider({ children }: { children: ReactNode }) {
   const [onboarded, setOnboarded] = useState(false)
   const [profile, setProfileState] = useState<UserProfile>(DEFAULT_PROFILE)
-  const [consumedMealIds, setConsumedMealIds] = useState<string[]>(['d1-pdj'])
-  const [consumed, setConsumed] = useState<MacroTargets>({ kcal: 380, protein: 28, carbs: 45, fat: 9 })
-  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(SHOPPING_LIST)
-  const [sentToDrive, setSentToDrive] = useState(false)
+  const [constraints, setConstraintsState] = useState<PlannerConstraints>(DEFAULT_CONSTRAINTS)
 
   const targets = useMemo(() => computeTargets(profile), [profile])
+
+  const [initial] = useState(() => {
+    const plan = generateWeekPlan(DEFAULT_PROFILE, computeTargets(DEFAULT_PROFILE), DEFAULT_CONSTRAINTS)
+    const breakfast = plan.find((m) => m.day === 1 && m.slot === 'petit-dejeuner')
+    const shoppingList = consolidateIngredients(plan)
+    return { plan, breakfast, shoppingList }
+  })
+
+  const [weekPlan, setWeekPlan] = useState<Meal[]>(initial.plan)
+  const [consumedMealIds, setConsumedMealIds] = useState<string[]>(initial.breakfast ? [initial.breakfast.id] : [])
+  const [consumed, setConsumed] = useState<MacroTargets>(
+    initial.breakfast
+      ? { kcal: initial.breakfast.kcal, protein: initial.breakfast.protein, carbs: initial.breakfast.carbs, fat: initial.breakfast.fat }
+      : { kcal: 0, protein: 0, carbs: 0, fat: 0 },
+  )
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(initial.shoppingList)
+  const [sentToDrive, setSentToDrive] = useState(false)
+
+  const weekStats = useMemo(() => computeWeekStats(weekPlan, targets, constraints, RECIPE_COST_MAP), [weekPlan, targets, constraints])
 
   function setProfile(p: Partial<UserProfile>) {
     setProfileState((prev) => ({ ...prev, ...p }))
@@ -72,6 +109,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   function completeOnboarding() {
     setOnboarded(true)
+    const plan = generateWeekPlan(profile, computeTargets(profile), constraints)
+    setWeekPlan(plan)
+    const breakfast = plan.find((m) => m.day === 1 && m.slot === 'petit-dejeuner')
+    setConsumedMealIds(breakfast ? [breakfast.id] : [])
+    setConsumed(breakfast ? { kcal: breakfast.kcal, protein: breakfast.protein, carbs: breakfast.carbs, fat: breakfast.fat } : { kcal: 0, protein: 0, carbs: 0, fat: 0 })
+    setShoppingList((prev) => mergeShoppingChecks(consolidateIngredients(plan), prev))
+    setSentToDrive(false)
+  }
+
+  function setConstraints(c: Partial<PlannerConstraints>) {
+    setConstraintsState((prev) => ({ ...prev, ...c }))
+  }
+
+  function regenerateWeek() {
+    const plan = generateWeekPlan(profile, targets, constraints)
+    setWeekPlan(plan)
+    setConsumedMealIds([])
+    setConsumed({ kcal: 0, protein: 0, carbs: 0, fat: 0 })
+    setShoppingList((prev) => mergeShoppingChecks(consolidateIngredients(plan), prev))
+    setSentToDrive(false)
+  }
+
+  function replaceMeal(mealId: string) {
+    const old = weekPlan.find((m) => m.id === mealId)
+    const newPlan = replaceMealInPlan(weekPlan, mealId, profile, targets, constraints)
+    setWeekPlan(newPlan)
+
+    if (old && consumedMealIds.includes(mealId)) {
+      setConsumedMealIds((prev) => prev.filter((id) => id !== mealId))
+      setConsumed((c) => ({
+        kcal: Math.max(0, c.kcal - old.kcal),
+        protein: Math.max(0, c.protein - old.protein),
+        carbs: Math.max(0, c.carbs - old.carbs),
+        fat: Math.max(0, c.fat - old.fat),
+      }))
+    }
+    setShoppingList((prev) => mergeShoppingChecks(consolidateIngredients(newPlan), prev))
   }
 
   function toggleMealConsumed(mealId: string, kcal: number, protein: number, carbs: number, fat: number) {
@@ -104,6 +178,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setProfile,
         completeOnboarding,
         targets,
+        weekPlan,
+        constraints,
+        setConstraints,
+        regenerateWeek,
+        replaceMeal,
+        weekStats,
         consumedMealIds,
         toggleMealConsumed,
         consumed,

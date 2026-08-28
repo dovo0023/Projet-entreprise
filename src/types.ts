@@ -46,6 +46,30 @@ export interface Meal {
   image: string
 }
 
+export interface RecipeTemplate {
+  id: string
+  slot: MealSlot
+  name: string
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+  prepTime: number // minutes
+  cost: number // euros per portion
+  freshnessTier: number // 1 (ultra-frais, à consommer tôt) .. 3 (longue conservation)
+  allergenTags: string[] // subset of ALLERGEN_OPTIONS
+  highGI: boolean // pertinent pour le filtre "contrôle glycémique"
+  ingredients: Ingredient[]
+  steps: string[]
+  image: string
+}
+
+export interface PlannerConstraints {
+  maxPrepTime: number | null
+  weeklyBudget: number | null
+  macroFocus: 'equilibre' | 'riche_proteines'
+}
+
 export interface ShoppingItem {
   id: string
   name: string

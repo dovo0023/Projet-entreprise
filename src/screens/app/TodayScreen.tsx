@@ -1,6 +1,5 @@
-import { Check, Clock, Users, Zap } from 'lucide-react'
+import { Check, Clock, Repeat, Users, Zap } from 'lucide-react'
 import { useState } from 'react'
-import { MEALS } from '../../data/mock'
 import { useApp } from '../../context/AppContext'
 import { Button, Card, KcalRing, MacroBar, Pill, SectionTitle } from '../../components/ui'
 import type { Meal } from '../../types'
@@ -12,8 +11,8 @@ const SLOT_LABEL: Record<Meal['slot'], string> = {
 }
 
 export default function TodayScreen() {
-  const { targets, consumed, consumedMealIds, toggleMealConsumed, profile } = useApp()
-  const todayMeals = MEALS.filter((m) => m.day === 1)
+  const { weekPlan, targets, consumed, consumedMealIds, toggleMealConsumed, replaceMeal, profile } = useApp()
+  const todayMeals = weekPlan.filter((m) => m.day === 1)
   const [expanded, setExpanded] = useState<string | null>(null)
 
   return (
@@ -95,8 +94,8 @@ export default function TodayScreen() {
                   >
                     {done && <Check size={15} />} {done ? 'Repas consommé' : 'Marquer consommé'}
                   </Button>
-                  <Button variant="ghost" className="!py-2.5 text-[13px]">
-                    Remplacement d’urgence
+                  <Button variant="ghost" className="!py-2.5 text-[13px]" onClick={() => replaceMeal(meal.id)}>
+                    <Repeat size={14} /> Remplacement d’urgence
                   </Button>
                 </div>
               </Card>
