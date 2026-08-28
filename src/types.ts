@@ -87,3 +87,24 @@ export interface AdherenceEntry {
   date: string
   percent: number
 }
+
+export interface ChatMessage {
+  from: 'patient' | 'praticien'
+  text: string
+  time: string
+}
+
+export interface PatientSummary {
+  id: string
+  name: string
+  goal: Goal
+  allergens: string[]
+  targets: MacroTargets
+  actualToday: MacroTargets
+  weightHistory: WeightEntry[]
+  adherenceHistory: AdherenceEntry[]
+  lastCheckIn: string
+  linkedToApp: boolean
+  riskFlags: string[]
+  messages: ChatMessage[]
+}

@@ -1,10 +1,12 @@
-import { Copy, MessageCircle, Scale, TrendingDown } from 'lucide-react'
+import { ArrowUpRight, Copy, MessageCircle, Scale, TrendingDown } from 'lucide-react'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ADHERENCE_HISTORY, WEIGHT_HISTORY } from '../../data/mock'
 import { Button, Card, SectionTitle } from '../../components/ui'
 
 export default function ProgressScreen() {
+  const navigate = useNavigate()
   const [weightInput, setWeightInput] = useState('')
   const [logged, setLogged] = useState(false)
   const lastWeight = WEIGHT_HISTORY[WEIGHT_HISTORY.length - 1].weight
@@ -115,6 +117,13 @@ export default function ProgressScreen() {
             </button>
           </div>
         </Card>
+
+        <button
+          onClick={() => navigate('/pro/login')}
+          className="tap w-full flex items-center justify-center gap-1.5 mt-3 py-2 text-[12.5px] font-bold text-ink-soft/60"
+        >
+          Découvrir l’espace praticien (démo) <ArrowUpRight size={13} />
+        </button>
       </div>
     </div>
   )

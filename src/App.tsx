@@ -1,40 +1,28 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
-import PhoneShell from './components/PhoneShell'
+import { Route, Routes } from 'react-router-dom'
+import ConsumerApp from './ConsumerApp'
 import { AppProvider } from './context/AppContext'
-import AppLayout from './layouts/AppLayout'
-import Login from './screens/Login'
-import Onboarding from './screens/Onboarding'
-import Welcome from './screens/Welcome'
-import PlanningScreen from './screens/app/PlanningScreen'
-import ProfileScreen from './screens/app/ProfileScreen'
-import ProgressScreen from './screens/app/ProgressScreen'
-import ShoppingScreen from './screens/app/ShoppingScreen'
-import SubscriptionScreen from './screens/app/SubscriptionScreen'
-import TodayScreen from './screens/app/TodayScreen'
+import { ProProvider } from './pro/ProContext'
+import ProLayout from './pro/ProLayout'
+import ProAccount from './screens/pro/ProAccount'
+import ProDashboard from './screens/pro/ProDashboard'
+import ProLogin from './screens/pro/ProLogin'
+import ProPatientDetail from './screens/pro/ProPatientDetail'
 
 export default function App() {
   return (
     <AppProvider>
-      <PhoneShell>
+      <ProProvider>
         <Routes>
-          <Route path="/" element={<Welcome />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-
-          <Route path="/app" element={<AppLayout />}>
-            <Route index element={<Navigate to="today" replace />} />
-            <Route path="planning" element={<PlanningScreen />} />
-            <Route path="today" element={<TodayScreen />} />
-            <Route path="shopping" element={<ShoppingScreen />} />
-            <Route path="progress" element={<ProgressScreen />} />
+          <Route path="/pro/login" element={<ProLogin />} />
+          <Route path="/pro" element={<ProLayout />}>
+            <Route index element={<ProDashboard />} />
+            <Route path="patients/:id" element={<ProPatientDetail />} />
+            <Route path="compte" element={<ProAccount />} />
           </Route>
 
-          <Route path="/app/profile" element={<ProfileScreen />} />
-          <Route path="/app/subscription" element={<SubscriptionScreen />} />
-
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<ConsumerApp />} />
         </Routes>
-      </PhoneShell>
+      </ProProvider>
     </AppProvider>
   )
 }
