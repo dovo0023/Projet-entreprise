@@ -3,13 +3,11 @@ import type { ChatMessage, DeliveryMode, MacroTargets, Meal, PlannerConstraints,
 import {
   applyMealChoice,
   computeWeekStats,
-  generateMenuOptions,
   generateWeekPlan,
   getMealAlternatives,
   RECIPE_COST_MAP,
   replaceMealInPlan,
   swapMealsBetweenDays,
-  type MenuOption,
   type WeekStats,
 } from '../engine/planner'
 import { consolidateIngredients } from '../engine/shoppingConsolidator'
@@ -30,14 +28,16 @@ export const DEFAULT_PROFILE: UserProfile = {
 }
 
 export const DEFAULT_CONSTRAINTS: PlannerConstraints = {
-  maxPrepTime: null,
+  timeBand: null,
+  hotColdPattern: null,
+  snacks: { enabled: false, timing: 'matin' },
   weeklyBudget: null,
   macroFocus: 'equilibre',
 }
 
 export const PATIENT_SHARE_CODE = 'NF-72K9'
 
-export type CourseStep = 'menu' | 'dishes' | 'ingredients' | 'store'
+export type CourseStep = 'menu' | 'ingredients' | 'store'
 
 const DEFAULT_MESSAGES: ChatMessage[] = [
   { from: 'patient', text: 'Bonjour Dr Marchand, le menu de cette semaine me convient très bien !', time: 'Lun 09:14' },
@@ -93,9 +93,9 @@ export function computeTargets(p: UserProfile): MacroTargets {
   return { kcal, protein, carbs, fat }
 }
 
-/** Le flux courses (menu → plats → ingrédients → magasin) ne porte que sur les repas de midi et du soir. */
+/** Le flux courses (menu → ingrédients → magasin) porte sur les repas de midi, du soir et les encas. */
 function shoppableMeals(plan: Meal[]): Meal[] {
-  return plan.filter((m) => m.slot === 'midi' || m.slot === 'soir')
+  return plan.filter((m) => m.slot !== 'petit-dejeuner')
 }
 
 function mergeHaveAtHome(newItems: ShoppingItem[], prevItems: ShoppingItem[]): ShoppingItem[] {
@@ -115,9 +115,7 @@ interface AppState {
   setConstraints: (c: Partial<PlannerConstraints>) => void
   weekStats: WeekStats
 
-  menuOptions: MenuOption[]
-  selectMenuOption: (optionId: string) => void
-  buildCustomMenu: () => void
+  applyPreferences: () => void
 
   courseStep: CourseStep
   setCourseStep: (s: CourseStep) => void
@@ -154,7 +152,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [constraints, setConstraintsState] = useState<PlannerConstraints>(persisted?.constraints ?? DEFAULT_CONSTRAINTS)
 
   const targets = useMemo(() => computeTargets(profile), [profile])
-  const menuOptions = useMemo(() => generateMenuOptions(profile, targets), [profile, targets])
 
   const [initial] = useState(() => {
     if (persisted?.weekPlan?.length) {
@@ -245,18 +242,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setConstraintsState((prev) => ({ ...prev, ...c }))
   }
 
-  function selectMenuOption(optionId: string) {
-    const option = menuOptions.find((o) => o.id === optionId)
-    if (!option) return
-    setConstraintsState(option.constraints)
-    applyNewPlan(option.plan)
-    setCourseStep('dishes')
-  }
-
-  function buildCustomMenu() {
+  function applyPreferences() {
     const plan = generateWeekPlan(profile, targets, constraints)
     applyNewPlan(plan)
-    setCourseStep('dishes')
   }
 
   function replaceMeal(mealId: string) {
@@ -347,9 +335,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         constraints,
         setConstraints,
         weekStats,
-        menuOptions,
-        selectMenuOption,
-        buildCustomMenu,
+        applyPreferences,
         courseStep,
         setCourseStep,
         mealAlternatives,

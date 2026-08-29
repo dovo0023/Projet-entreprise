@@ -1,17 +1,43 @@
 import { RECIPE_POOL } from './recipes'
-import type { MacroTargets, Meal, PlannerConstraints, RecipeTemplate, UserProfile } from '../types'
+import type { HotColdPattern, MacroTargets, Meal, PlannerConstraints, RecipeSlot, RecipeTemplate, Temperature, TimeBand, UserProfile } from '../types'
 
 const DIABETES_TAG = 'Diabète (contrôle glycémique)'
 
-// Répartition indicative des calories/macros journalières entre les 3 repas.
-const SLOT_SHARE: Record<Meal['slot'], number> = {
-  'petit-dejeuner': 0.25,
-  midi: 0.4,
-  soir: 0.35,
+const SLOT_CODE: Record<Meal['slot'], string> = {
+  'petit-dejeuner': 'pdj',
+  midi: 'midi',
+  soir: 'soir',
+  'encas-matin': 'am',
+  'encas-apresmidi': 'pm',
 }
 
-function slotTarget(targets: MacroTargets, slot: Meal['slot']): MacroTargets {
-  const share = SLOT_SHARE[slot]
+/** Les créneaux encas partagent un seul pool de recettes ("encas"), matin ou après-midi. */
+function recipeSlotFor(slot: Meal['slot']): RecipeSlot {
+  if (slot === 'encas-matin' || slot === 'encas-apresmidi') return 'encas'
+  return slot
+}
+
+/** Créneaux actifs de la journée, selon que des encas sont activés et à quel moment. */
+function activeSlots(constraints: PlannerConstraints): Meal['slot'][] {
+  const slots: Meal['slot'][] = ['petit-dejeuner', 'midi', 'soir']
+  if (constraints.snacks.enabled) {
+    if (constraints.snacks.timing === 'matin' || constraints.snacks.timing === 'les_deux') slots.push('encas-matin')
+    if (constraints.snacks.timing === 'apres_midi' || constraints.snacks.timing === 'les_deux') slots.push('encas-apresmidi')
+  }
+  return slots
+}
+
+/** Répartition indicative des calories/macros journalières entre les créneaux actifs. */
+function computeSlotShares(constraints: PlannerConstraints): Partial<Record<Meal['slot'], number>> {
+  const { enabled, timing } = constraints.snacks
+  if (!enabled) return { 'petit-dejeuner': 0.25, midi: 0.4, soir: 0.35 }
+  if (timing === 'les_deux') return { 'petit-dejeuner': 0.2, midi: 0.35, soir: 0.3, 'encas-matin': 0.075, 'encas-apresmidi': 0.075 }
+  const base = { 'petit-dejeuner': 0.22, midi: 0.37, soir: 0.32 }
+  return timing === 'matin' ? { ...base, 'encas-matin': 0.09 } : { ...base, 'encas-apresmidi': 0.09 }
+}
+
+function slotTarget(targets: MacroTargets, slot: Meal['slot'], constraints: PlannerConstraints): MacroTargets {
+  const share = computeSlotShares(constraints)[slot] ?? 0.1
   return {
     kcal: targets.kcal * share,
     protein: targets.protein * share,
@@ -19,6 +45,21 @@ function slotTarget(targets: MacroTargets, slot: Meal['slot']): MacroTargets {
     fat: targets.fat * share,
   }
 }
+
+/** Température souhaitée pour un créneau donné d'après la répartition chaud/froid choisie. */
+function desiredTemperature(slot: Meal['slot'], pattern: HotColdPattern): Temperature | null {
+  if (slot !== 'midi' && slot !== 'soir') return null
+  const [midi, soir] = pattern.split('_') as [Temperature, Temperature]
+  return slot === 'midi' ? midi : soir
+}
+
+function timeBandOf(prepTime: number): TimeBand {
+  if (prepTime <= 15) return 'court'
+  if (prepTime <= 30) return 'moyen'
+  return 'long'
+}
+
+const TIME_BAND_INDEX: Record<TimeBand, number> = { court: 0, moyen: 1, long: 2 }
 
 /** Filtre dur : allergènes/contre-indications du profil, jamais négociables. */
 function isEligible(recipe: RecipeTemplate, profile: UserProfile): boolean {
@@ -41,6 +82,7 @@ function macroDeviation(recipe: RecipeTemplate, target: MacroTargets, macroFocus
 }
 
 interface ScoreContext {
+  slot: Meal['slot']
   target: MacroTargets
   constraints: PlannerConstraints
   usageCount: Map<string, number>
@@ -50,13 +92,20 @@ interface ScoreContext {
   budgetSlotsRemaining: number
 }
 
-/** Score composite : plus bas = meilleur choix. Combine macros, budget, fraîcheur et variété. */
+/** Score composite : plus bas = meilleur choix. Combine macros, temps, chaud/froid, budget, fraîcheur et variété. */
 function scoreRecipe(recipe: RecipeTemplate, ctx: ScoreContext): number {
   let score = macroDeviation(recipe, ctx.target, ctx.constraints.macroFocus)
 
-  // Contrainte temps : au-delà du plafond, pénalité forte mais pas éliminatoire (on garde une solution de repli).
-  if (ctx.constraints.maxPrepTime != null && recipe.prepTime > ctx.constraints.maxPrepTime) {
-    score += 1.5 * (recipe.prepTime - ctx.constraints.maxPrepTime) / ctx.constraints.maxPrepTime
+  // Temps de préparation souhaité (bande large plutôt que seuil strict).
+  if (ctx.constraints.timeBand) {
+    const diff = Math.abs(TIME_BAND_INDEX[timeBandOf(recipe.prepTime)] - TIME_BAND_INDEX[ctx.constraints.timeBand])
+    score += diff * 0.5
+  }
+
+  // Répartition chaud/froid choisie pour midi et soir.
+  if (ctx.constraints.hotColdPattern && recipe.temperature) {
+    const desired = desiredTemperature(ctx.slot, ctx.constraints.hotColdPattern)
+    if (desired && recipe.temperature !== desired) score += 0.6
   }
 
   // Contrainte budget : pénalise les recettes chères quand le budget restant par repas est serré.
@@ -86,11 +135,11 @@ function freshnessDayFor(recipe: RecipeTemplate, day: number): number {
   return Math.min(7, day + offset)
 }
 
-function toMeal(recipe: RecipeTemplate, day: number): Meal {
+function toMeal(recipe: RecipeTemplate, day: number, slot: Meal['slot']): Meal {
   return {
-    id: `${recipe.id}-d${day}`,
+    id: `${recipe.id}-d${day}-${SLOT_CODE[slot]}`,
     day,
-    slot: recipe.slot,
+    slot,
     name: recipe.name,
     kcal: recipe.kcal,
     protein: recipe.protein,
@@ -110,29 +159,30 @@ interface Assignment {
   recipe: RecipeTemplate
 }
 
-/** Génère un planning de 7 jours en optimisant simultanément macros, temps, budget, fraîcheur et variété. */
+/** Génère un planning de 7 jours en optimisant simultanément macros, temps, chaud/froid, budget, fraîcheur et variété. */
 export function generateWeekPlan(profile: UserProfile, targets: MacroTargets, constraints: PlannerConstraints): Meal[] {
   const eligible = RECIPE_POOL.filter((r) => isEligible(r, profile))
-  const bySlot: Record<Meal['slot'], RecipeTemplate[]> = {
+  const byRecipeSlot: Record<RecipeSlot, RecipeTemplate[]> = {
     'petit-dejeuner': eligible.filter((r) => r.slot === 'petit-dejeuner'),
     midi: eligible.filter((r) => r.slot === 'midi'),
     soir: eligible.filter((r) => r.slot === 'soir'),
+    encas: eligible.filter((r) => r.slot === 'encas'),
   }
 
+  const slots = activeSlots(constraints)
   const usageCount = new Map<string, number>()
   const assignments: Assignment[] = []
   let budgetSpent = 0
-  const totalSlots = 21
+  const totalSlots = 7 * slots.length
   let slotsFilled = 0
-
-  const slots: Meal['slot'][] = ['petit-dejeuner', 'midi', 'soir']
 
   for (let day = 1; day <= 7; day++) {
     for (const slot of slots) {
-      const candidates = bySlot[slot]
+      const candidates = byRecipeSlot[recipeSlotFor(slot)]
       if (candidates.length === 0) continue
-      const target = slotTarget(targets, slot)
+      const target = slotTarget(targets, slot, constraints)
       const ctx: ScoreContext = {
+        slot,
         target,
         constraints,
         usageCount,
@@ -171,11 +221,11 @@ export function generateWeekPlan(profile: UserProfile, targets: MacroTargets, co
           if (ai.recipe.id === aj.recipe.id) continue
 
           const scoreBefore =
-            scoreRecipe(ai.recipe, buildCtx(ai.day, slot, targets, constraints, usageCount, undoUsage(usageCount, ai.recipe.id))) +
-            scoreRecipe(aj.recipe, buildCtx(aj.day, slot, targets, constraints, usageCount, undoUsage(usageCount, aj.recipe.id)))
+            scoreRecipe(ai.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id))) +
+            scoreRecipe(aj.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id)))
           const scoreAfter =
-            scoreRecipe(aj.recipe, buildCtx(ai.day, slot, targets, constraints, usageCount, undoUsage(usageCount, aj.recipe.id))) +
-            scoreRecipe(ai.recipe, buildCtx(aj.day, slot, targets, constraints, usageCount, undoUsage(usageCount, ai.recipe.id)))
+            scoreRecipe(aj.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id))) +
+            scoreRecipe(ai.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id)))
 
           if (scoreAfter < scoreBefore - 0.05) {
             assignments[i] = { ...ai, recipe: aj.recipe }
@@ -186,7 +236,7 @@ export function generateWeekPlan(profile: UserProfile, targets: MacroTargets, co
     }
   }
 
-  return assignments.map((a) => toMeal(a.recipe, a.day))
+  return assignments.map((a) => toMeal(a.recipe, a.day, a.slot))
 }
 
 function undoUsage(usageCount: Map<string, number>, recipeId: string): Map<string, number> {
@@ -201,12 +251,12 @@ function buildCtx(
   targets: MacroTargets,
   constraints: PlannerConstraints,
   usageCount: Map<string, number>,
-  usageOverride?: Map<string, number>,
 ): ScoreContext {
   return {
-    target: slotTarget(targets, slot),
+    slot,
+    target: slotTarget(targets, slot, constraints),
     constraints,
-    usageCount: usageOverride ?? usageCount,
+    usageCount,
     dayIndex: day - 1,
     totalDays: 7,
     budgetSpent: 0,
@@ -215,7 +265,7 @@ function buildCtx(
 }
 
 function recipeIdFromMealId(mealId: string): string {
-  return mealId.replace(/-d\d+$/, '')
+  return mealId.replace(/-d\d+-[a-z]+$/, '')
 }
 
 /** Retrouve la fiche recette d'origine d'un repas du planning (pour connaître son tier de fraîcheur réel). */
@@ -231,12 +281,13 @@ function rankAlternatives(plan: Meal[], mealId: string, profile: UserProfile, ta
   const currentRecipeId = recipeIdFromMealId(current.id)
   const usedElsewhere = new Set(plan.filter((m) => m.id !== mealId && m.slot === current.slot).map((m) => recipeIdFromMealId(m.id)))
 
-  const eligible = RECIPE_POOL.filter((r) => r.slot === current.slot && isEligible(r, profile) && r.id !== currentRecipeId)
+  const eligible = RECIPE_POOL.filter((r) => r.slot === recipeSlotFor(current.slot) && isEligible(r, profile) && r.id !== currentRecipeId)
   const usageCount = new Map<string, number>()
   usedElsewhere.forEach((id) => usageCount.set(id, 1))
 
   const ctx: ScoreContext = {
-    target: slotTarget(targets, current.slot),
+    slot: current.slot,
+    target: slotTarget(targets, current.slot, constraints),
     constraints,
     usageCount,
     dayIndex: current.day - 1,
@@ -253,7 +304,7 @@ export function replaceMealInPlan(plan: Meal[], mealId: string, profile: UserPro
   const current = plan.find((m) => m.id === mealId)
   const best = rankAlternatives(plan, mealId, profile, targets, constraints)[0]
   if (!current || !best) return plan
-  return plan.map((m) => (m.id === mealId ? toMeal(best, current.day) : m))
+  return plan.map((m) => (m.id === mealId ? toMeal(best, current.day, current.slot) : m))
 }
 
 /** Renvoie jusqu'à `count` propositions de recettes alternatives pour un repas, pour laisser l'utilisateur choisir. */
@@ -273,7 +324,7 @@ export function applyMealChoice(plan: Meal[], mealId: string, recipeId: string):
   const current = plan.find((m) => m.id === mealId)
   const recipe = RECIPE_POOL.find((r) => r.id === recipeId)
   if (!current || !recipe) return plan
-  return plan.map((m) => (m.id === mealId ? toMeal(recipe, current.day) : m))
+  return plan.map((m) => (m.id === mealId ? toMeal(recipe, current.day, current.slot) : m))
 }
 
 /**
@@ -291,52 +342,15 @@ export function swapMealsBetweenDays(plan: Meal[], mealIdA: string, mealIdB: str
   if (!recipeA || !recipeB) return plan
 
   const updated = plan.map((m) => {
-    if (m.id === mealIdA) return toMeal(recipeA, b.day)
-    if (m.id === mealIdB) return toMeal(recipeB, a.day)
+    if (m.id === mealIdA) return toMeal(recipeA, b.day, a.slot)
+    if (m.id === mealIdB) return toMeal(recipeB, a.day, a.slot)
     return m
   })
 
   // Un repas change de jour sans bouger dans le tableau : on retrie pour que l'ordre
-  // d'affichage (petit-déj → midi → soir, jour par jour) reste cohérent après la permutation.
-  const slotOrder: Record<Meal['slot'], number> = { 'petit-dejeuner': 0, midi: 1, soir: 2 }
+  // d'affichage (petit-déj → midi → soir → encas, jour par jour) reste cohérent après la permutation.
+  const slotOrder: Record<Meal['slot'], number> = { 'petit-dejeuner': 0, 'encas-matin': 1, midi: 2, 'encas-apresmidi': 3, soir: 4 }
   return [...updated].sort((x, y) => x.day - y.day || slotOrder[x.slot] - slotOrder[y.slot])
-}
-
-export interface MenuOption {
-  id: string
-  label: string
-  description: string
-  constraints: PlannerConstraints
-  plan: Meal[]
-}
-
-/** Génère plusieurs propositions de menus de la semaine parmi lesquelles choisir (ou personnaliser). */
-export function generateMenuOptions(profile: UserProfile, targets: MacroTargets): MenuOption[] {
-  const presets: { id: string; label: string; description: string; constraints: PlannerConstraints }[] = [
-    {
-      id: 'equilibre',
-      label: 'Équilibré',
-      description: 'Le meilleur compromis calories, macros et variété.',
-      constraints: { maxPrepTime: null, weeklyBudget: null, macroFocus: 'equilibre' },
-    },
-    {
-      id: 'rapide',
-      label: 'Rapide',
-      description: 'Recettes courtes, pour la semaine sans temps à perdre.',
-      constraints: { maxPrepTime: 15, weeklyBudget: null, macroFocus: 'equilibre' },
-    },
-    {
-      id: 'economique',
-      label: 'Économique',
-      description: 'Panier resserré, sans sacrifier l’équilibre nutritionnel.',
-      constraints: { maxPrepTime: null, weeklyBudget: 40, macroFocus: 'equilibre' },
-    },
-  ]
-
-  return presets.map((preset) => ({
-    ...preset,
-    plan: generateWeekPlan(profile, targets, preset.constraints),
-  }))
 }
 
 export interface WeekStats {
@@ -374,8 +388,7 @@ export function computeWeekStats(plan: Meal[], targets: MacroTargets, constraint
   }
 
   for (const meal of plan) {
-    const recipeId = meal.id.replace(/-d\d+$/, '')
-    totalCost += recipeCosts.get(recipeId) ?? 0
+    totalCost += recipeCosts.get(recipeIdFromMealId(meal.id)) ?? 0
     totalPrep += meal.prepTime
   }
 

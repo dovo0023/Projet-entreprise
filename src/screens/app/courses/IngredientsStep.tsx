@@ -21,10 +21,10 @@ export default function IngredientsStep() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="px-5 pt-5 pb-3 shrink-0">
-        <button onClick={() => setCourseStep('dishes')} className="tap flex items-center gap-1 text-[12.5px] font-bold text-ink-soft/60 mb-2">
+        <button onClick={() => setCourseStep('menu')} className="tap flex items-center gap-1 text-[12.5px] font-bold text-ink-soft/60 mb-2">
           <ChevronLeft size={14} /> Retour au menu
         </button>
-        <h1 className="text-xl font-extrabold text-ink">Qu’avez-vous déjà chez vous ?</h1>
+        <h1 className="text-xl font-extrabold text-ink">Détail du panier</h1>
         <p className="text-[13px] text-ink-soft mt-1">Cochez ce qui traîne dans vos placards : on l’enlève du panier.</p>
       </div>
 

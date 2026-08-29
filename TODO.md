@@ -6,12 +6,15 @@ Liste vivante des limites connues de la maquette et des décisions à trancher e
 - [x] ~~L'espace praticien était accessible par un lien caché depuis l'app patiente~~ → résolu : le rôle (patient / praticien) se choisit sur l'écran d'accueil, avant inscription/connexion ; les raccourcis croisés (« Découvrir l'espace praticien », « Voir l'app patient ») ont été retirés.
 - [ ] Rien n'empêche techniquement de taper directement `#/pro` dans l'URL — la séparation est une UX de bon sens (pas de bouton), pas une vraie barrière d'accès. Une fois un backend en place, l'accès à `/pro` devra être gardé par une vraie session praticien.
 
-## Courses = assistant menu → plats → ingrédients → magasin (nouveau)
-- [x] ~~L'onglet Courses montrait une liste d'aliments~~ → résolu : nouveau parcours en 4 étapes (choix d'un menu parmi 3 propositions ou menu personnalisé, revue/échange des plats midi+soir avec propositions alternatives réelles, ingrédients déjà à la maison, comparatif de magasins avec recommandation et mode Click & Collect / Click & Collect + Livraison).
-- [x] ~~"Réglages du plan" et "Régénérer la semaine" étaient dans Planning~~ → déplacés dans Courses (étape Menu).
-- [ ] Le filtre "catégorie" reste basé sur le créneau (midi/soir) et le temps de préparation, faute de vraie taxonomie de recettes (cuisine du monde, régime, etc.) — à enrichir si on veut un vrai filtre par catégorie de plat.
+## Courses = menu direct → détail panier → magasin → validation (mis à jour)
+- [x] ~~L'onglet Courses proposait 3 menus à choisir~~ → résolu : un seul menu jour par jour (midi/soir/encas) est généré directement ; chaque plat a son propre bouton « Régénérer un repas » plutôt qu'un choix parmi plusieurs menus.
+- [x] ~~"Réglages du plan" et "Régénérer la semaine" étaient dans Planning~~ → déplacés dans Courses, dans un panneau **Préférences** catégorisé (temps de préparation, répartition chaud/froid, encas, budget, profil nutritionnel) plutôt qu'une simple rangée de filtres.
+- [x] ~~Pas de notion chaud/froid ni d'encas~~ → résolu : chaque recette midi/soir est taguée chaud ou froid, un nouveau pool de 8 recettes d'encas existe, et le moteur répartit les calories entre créneaux dynamiquement selon que des encas sont activés (matin, après-midi ou les deux).
+- [x] ~~Parcours en 4 étapes rigides (menu → plats → ingrédients → magasin)~~ → simplifié en modèle « hub » : depuis le menu, deux actions au choix — « Détail du panier » (optionnel, pour cocher ce qu'on a déjà) ou « Continuer » (direct vers les magasins) ; les deux reviennent au menu.
+- [ ] Le filtre "catégorie" reste basé sur le créneau (midi/soir/encas), le temps de préparation et le chaud/froid, faute de vraie taxonomie de recettes (cuisine du monde, régime, etc.) — à enrichir si on veut un vrai filtre par style de plat.
 - [ ] Le prix par magasin est une estimation simplifiée (nombre d'articles restants × prix moyen × multiplicateur par enseigne), pas un vrai catalogue de prix produit par produit.
-- [ ] Seuls les repas midi/soir passent par ce parcours (le petit-déjeuner reste géré uniquement dans Aujourd'hui/Planning) — choix assumé pour cette itération, à confirmer.
+- [ ] Le petit-déjeuner reste hors du parcours Courses (géré uniquement dans Aujourd'hui/Planning) — choix assumé, à confirmer avec l'équipe.
+- [ ] La répartition chaud/froid et le temps de préparation sont des préférences "souples" (le moteur les favorise mais peut s'en écarter s'il n'y a pas assez de recettes candidates) — jamais un filtre dur qui viderait le menu.
 
 ## Planning : permutation entre jours (nouveau)
 - [x] ~~Pas de moyen d'échanger un plat avec un autre jour~~ → résolu : chaque repas peut être permuté avec le même créneau d'un autre jour, avec un avertissement si un plat très frais (tier 1) est repoussé tard dans la semaine.

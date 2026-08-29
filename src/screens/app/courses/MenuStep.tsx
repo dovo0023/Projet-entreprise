@@ -1,98 +1,95 @@
-import { Flame, Sparkles, Timer, Wallet } from 'lucide-react'
+import { ChevronRight, RefreshCcw, ShoppingBasket, SlidersHorizontal, Timer, Zap } from 'lucide-react'
+import { useState } from 'react'
 import { useApp } from '../../../context/AppContext'
-import { computeWeekStats, RECIPE_COST_MAP } from '../../../engine/planner'
+import { WEEK_DAYS } from '../../../data/mock'
 import { Button, Card, Pill, SectionTitle } from '../../../components/ui'
+import PreferencesPanel from './PreferencesPanel'
+import type { Meal } from '../../../types'
+
+const SLOT_LABEL: Record<Meal['slot'], string> = {
+  'petit-dejeuner': 'Petit-déjeuner',
+  'encas-matin': 'Encas du matin',
+  midi: 'Midi',
+  'encas-apresmidi': 'Encas de l’après-midi',
+  soir: 'Soir',
+}
+
+const SLOT_ORDER: Meal['slot'][] = ['encas-matin', 'midi', 'encas-apresmidi', 'soir']
 
 export default function MenuStep() {
-  const { profile, targets, menuOptions, selectMenuOption, constraints, setConstraints, buildCustomMenu } = useApp()
-
-  const fastActive = constraints.maxPrepTime === 15
-  const proteinActive = constraints.macroFocus === 'riche_proteines'
-  const budgetActive = constraints.weeklyBudget != null
+  const { weekPlan, replaceMeal, setCourseStep } = useApp()
+  const [prefsOpen, setPrefsOpen] = useState(false)
 
   return (
-    <div className="px-5 pt-5 pb-8">
-      <h1 className="text-xl font-extrabold text-ink">Choisissez votre menu</h1>
-      <p className="text-[13px] text-ink-soft mt-1">3 propositions calibrées pour {profile.firstName}, ou composez la vôtre.</p>
+    <div className="flex-1 flex flex-col overflow-hidden relative">
+      <div className="px-5 pt-5 pb-3 shrink-0 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-extrabold text-ink">Votre menu de la semaine</h1>
+          <p className="text-[13px] text-ink-soft mt-1">Un plat ne vous convient pas ? Régénérez-le.</p>
+        </div>
+        <button
+          onClick={() => setPrefsOpen(true)}
+          className="tap w-10 h-10 rounded-full bg-ink text-cream flex items-center justify-center shrink-0"
+          aria-label="Préférences"
+        >
+          <SlidersHorizontal size={16} />
+        </button>
+      </div>
 
-      <div className="flex flex-col gap-3 mt-5">
-        {menuOptions.map((option) => {
-          const stats = computeWeekStats(option.plan, targets, option.constraints, RECIPE_COST_MAP)
+      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-4 flex flex-col gap-6">
+        {WEEK_DAYS.map((dayName, idx) => {
+          const dayNum = idx + 1
+          const dayMeals = weekPlan
+            .filter((m) => m.day === dayNum && m.slot !== 'petit-dejeuner')
+            .sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
+          if (dayMeals.length === 0) return null
+
           return (
-            <Card key={option.id} className="flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-extrabold text-ink text-[15px]">{option.label}</p>
-                  <p className="text-[12.5px] text-ink-soft mt-0.5">{option.description}</p>
-                </div>
-                <Sparkles size={18} className="text-clementine-500 shrink-0 mt-0.5" />
+            <div key={dayName}>
+              <SectionTitle>
+                {dayName} · Jour {dayNum}
+              </SectionTitle>
+              <div className="flex flex-col gap-2.5">
+                {dayMeals.map((meal) => (
+                  <Card key={meal.id} className="!p-3 flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-leaf-50 flex items-center justify-center text-xl shrink-0">{meal.image}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10.5px] font-bold text-leaf-600 uppercase tracking-wide">{SLOT_LABEL[meal.slot]}</p>
+                      <p className="font-bold text-ink text-[13.5px] truncate">{meal.name}</p>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <Pill>
+                          <Timer size={10} /> {meal.prepTime} min
+                        </Pill>
+                        <Pill tone="clementine">
+                          <Zap size={10} /> {meal.kcal} kcal
+                        </Pill>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => replaceMeal(meal.id)}
+                      className="tap w-9 h-9 rounded-full bg-black/5 flex items-center justify-center shrink-0"
+                      aria-label="Régénérer un repas"
+                    >
+                      <RefreshCcw size={14} className="text-ink-soft" />
+                    </button>
+                  </Card>
+                ))}
               </div>
-              <div className="flex gap-2 flex-wrap">
-                <Pill tone="leaf">{stats.avgMacroMatch}% macros</Pill>
-                <Pill>
-                  <Timer size={11} /> {stats.avgPrepTime} min / repas
-                </Pill>
-                <Pill tone="clementine">{stats.totalCost.toFixed(0)} € / semaine</Pill>
-              </div>
-              <Button onClick={() => selectMenuOption(option.id)}>Choisir ce menu</Button>
-            </Card>
+            </div>
           )
         })}
       </div>
 
-      <div className="mt-7">
-        <SectionTitle>Ou composez le vôtre</SectionTitle>
-        <Card className="flex flex-col gap-3">
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setConstraints({ maxPrepTime: fastActive ? null : 15 })}
-              className={`tap flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-bold border ${
-                fastActive ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
-              }`}
-            >
-              <Timer size={13} /> Repas &lt; 15 min
-            </button>
-            <button
-              onClick={() => setConstraints({ macroFocus: proteinActive ? 'equilibre' : 'riche_proteines' })}
-              className={`tap flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-bold border ${
-                proteinActive ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
-              }`}
-            >
-              <Flame size={13} /> Riche en protéines
-            </button>
-            <button
-              onClick={() => setConstraints({ weeklyBudget: budgetActive ? null : 50 })}
-              className={`tap flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-bold border ${
-                budgetActive ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
-              }`}
-            >
-              <Wallet size={13} /> Budget maîtrisé
-            </button>
-          </div>
-
-          {budgetActive && (
-            <div>
-              <div className="flex justify-between text-[12px] mb-1.5">
-                <span className="font-bold text-ink-soft">Budget hebdomadaire max</span>
-                <span className="font-extrabold text-ink">{constraints.weeklyBudget} €</span>
-              </div>
-              <input
-                type="range"
-                min={25}
-                max={90}
-                step={5}
-                value={constraints.weeklyBudget ?? 50}
-                onChange={(e) => setConstraints({ weeklyBudget: Number(e.target.value) })}
-                className="w-full accent-leaf-500"
-              />
-            </div>
-          )}
-
-          <Button variant="dark" onClick={buildCustomMenu}>
-            Générer mon menu personnalisé
-          </Button>
-        </Card>
+      <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-2 shrink-0 border-t border-black/5 flex gap-2.5">
+        <Button variant="ghost" className="flex-1 !py-3" onClick={() => setCourseStep('ingredients')}>
+          <ShoppingBasket size={15} /> Détail du panier
+        </Button>
+        <Button className="flex-1 !py-3" onClick={() => setCourseStep('store')}>
+          Continuer <ChevronRight size={15} />
+        </Button>
       </div>
+
+      {prefsOpen && <PreferencesPanel onClose={() => setPrefsOpen(false)} />}
     </div>
   )
 }

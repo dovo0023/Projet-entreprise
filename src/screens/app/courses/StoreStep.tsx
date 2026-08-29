@@ -22,10 +22,10 @@ export default function StoreStep() {
         <div className="w-16 h-16 rounded-full bg-leaf-100 flex items-center justify-center mb-5">
           <Check size={28} className="text-leaf-600" />
         </div>
-        <h1 className="text-xl font-extrabold text-ink">Commande envoyée !</h1>
+        <h1 className="text-xl font-extrabold text-ink">Commande validée et payée !</h1>
         <p className="text-[13.5px] text-ink-soft mt-2 max-w-[260px]">
           {chosenDeliveryMode === 'click_collect_delivery' ? 'Livraison' : 'Retrait'} chez <strong>{store?.name}</strong>
-          {quote ? ` · panier estimé ${quote.total.toFixed(2)} €` : ''}.
+          {quote ? ` · ${quote.total.toFixed(2)} € payés` : ''}.
         </p>
         <Button variant="ghost" className="mt-6" onClick={resetOrder}>
           Modifier ma commande
@@ -37,8 +37,8 @@ export default function StoreStep() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="px-5 pt-5 pb-3 shrink-0">
-        <button onClick={() => setCourseStep('ingredients')} className="tap flex items-center gap-1 text-[12.5px] font-bold text-ink-soft/60 mb-2">
-          <ChevronLeft size={14} /> Retour aux ingrédients
+        <button onClick={() => setCourseStep('menu')} className="tap flex items-center gap-1 text-[12.5px] font-bold text-ink-soft/60 mb-2">
+          <ChevronLeft size={14} /> Retour au menu
         </button>
         <h1 className="text-xl font-extrabold text-ink">Où faire vos courses ?</h1>
         <p className="text-[13px] text-ink-soft mt-1">Prix estimés pour ce qu’il vous reste à acheter.</p>

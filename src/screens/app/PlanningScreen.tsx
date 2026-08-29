@@ -6,6 +6,16 @@ import { getRecipeTemplate } from '../../engine/planner'
 import { Button, Card, Pill, SectionTitle } from '../../components/ui'
 import type { Meal } from '../../types'
 
+const SLOT_ORDER: Meal['slot'][] = ['petit-dejeuner', 'encas-matin', 'midi', 'encas-apresmidi', 'soir']
+
+const SLOT_LABEL: Record<Meal['slot'], string> = {
+  'petit-dejeuner': 'Petit-déjeuner',
+  'encas-matin': 'Encas du matin',
+  midi: 'Midi',
+  'encas-apresmidi': 'Encas de l’après-midi',
+  soir: 'Soir',
+}
+
 function freshnessLabel(freshnessDay: number) {
   if (freshnessDay <= 2) return { label: `DLC J${freshnessDay}`, tone: 'berry' as const }
   if (freshnessDay <= 4) return { label: `DLC J${freshnessDay}`, tone: 'clementine' as const }
@@ -62,7 +72,7 @@ export default function PlanningScreen() {
       <div className="px-5 mt-6 flex flex-col gap-6 pb-8">
         {WEEK_DAYS.map((dayName, idx) => {
           const dayNum = idx + 1
-          const dayMeals = weekPlan.filter((m) => m.day === dayNum)
+          const dayMeals = weekPlan.filter((m) => m.day === dayNum).sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
           if (dayMeals.length === 0) return null
           return (
             <div key={dayName}>
@@ -80,6 +90,7 @@ export default function PlanningScreen() {
                       <button className="w-full flex items-center gap-3 text-left" onClick={() => setExpandedMealId(isOpen ? null : meal.id)}>
                         <div className="w-11 h-11 rounded-xl bg-leaf-50 flex items-center justify-center text-xl shrink-0">{meal.image}</div>
                         <div className="flex-1 min-w-0">
+                          <p className="text-[10.5px] font-bold text-leaf-600 uppercase tracking-wide">{SLOT_LABEL[meal.slot]}</p>
                           <p className="font-bold text-ink text-[13.5px] truncate">{meal.name}</p>
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             <Pill>

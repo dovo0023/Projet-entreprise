@@ -2,7 +2,19 @@ export type ActivityLevel = 'sedentaire' | 'modere' | 'intense'
 
 export type Goal = 'seche' | 'maintien' | 'prise_de_masse'
 
-export type MealSlot = 'petit-dejeuner' | 'midi' | 'soir'
+export type MealSlot = 'petit-dejeuner' | 'midi' | 'soir' | 'encas-matin' | 'encas-apresmidi'
+
+/** Créneaux pour lesquels une recette peut être proposée (l'encas sert aussi bien le matin que l'après-midi). */
+export type RecipeSlot = 'petit-dejeuner' | 'midi' | 'soir' | 'encas'
+
+export type Temperature = 'chaud' | 'froid'
+
+export type TimeBand = 'court' | 'moyen' | 'long'
+
+/** Température souhaitée à midi puis au soir (ex. "froid_chaud" = froid le midi, chaud le soir). */
+export type HotColdPattern = 'chaud_chaud' | 'froid_chaud' | 'chaud_froid' | 'froid_froid'
+
+export type SnackTiming = 'matin' | 'apres_midi' | 'les_deux'
 
 export interface UserProfile {
   firstName: string
@@ -48,7 +60,7 @@ export interface Meal {
 
 export interface RecipeTemplate {
   id: string
-  slot: MealSlot
+  slot: RecipeSlot
   name: string
   kcal: number
   protein: number
@@ -59,13 +71,16 @@ export interface RecipeTemplate {
   freshnessTier: number // 1 (ultra-frais, à consommer tôt) .. 3 (longue conservation)
   allergenTags: string[] // subset of ALLERGEN_OPTIONS
   highGI: boolean // pertinent pour le filtre "contrôle glycémique"
+  temperature?: Temperature // midi/soir uniquement : chaud ou froid
   ingredients: Ingredient[]
   steps: string[]
   image: string
 }
 
 export interface PlannerConstraints {
-  maxPrepTime: number | null
+  timeBand: TimeBand | null // null = peu importe
+  hotColdPattern: HotColdPattern | null // null = peu importe
+  snacks: { enabled: boolean; timing: SnackTiming }
   weeklyBudget: number | null
   macroFocus: 'equilibre' | 'riche_proteines'
 }

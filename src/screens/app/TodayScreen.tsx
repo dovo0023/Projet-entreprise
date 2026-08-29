@@ -6,13 +6,17 @@ import type { Meal } from '../../types'
 
 const SLOT_LABEL: Record<Meal['slot'], string> = {
   'petit-dejeuner': 'Petit-déjeuner',
+  'encas-matin': 'Encas du matin',
   midi: 'Déjeuner',
+  'encas-apresmidi': 'Encas de l’après-midi',
   soir: 'Dîner',
 }
 
+const SLOT_ORDER: Meal['slot'][] = ['petit-dejeuner', 'encas-matin', 'midi', 'encas-apresmidi', 'soir']
+
 export default function TodayScreen() {
   const { weekPlan, targets, consumed, consumedMealIds, toggleMealConsumed, replaceMeal, profile } = useApp()
-  const todayMeals = weekPlan.filter((m) => m.day === 1)
+  const todayMeals = weekPlan.filter((m) => m.day === 1).sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
   const [expanded, setExpanded] = useState<string | null>(null)
 
   return (
