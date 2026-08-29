@@ -16,8 +16,9 @@ Liste vivante des limites connues de la maquette et des décisions à trancher e
 - [ ] Le petit-déjeuner reste hors du parcours Courses (géré uniquement dans Aujourd'hui/Planning) — choix assumé, à confirmer avec l'équipe.
 - [x] ~~Le tri/préférences (temps de préparation, chaud/froid) ne changeait presque rien au menu généré~~ → **bug corrigé** : c'était de simples pénalités de score, largement écrasées par les autres critères (macros, budget). Ce sont maintenant de vrais filtres (avec repli automatique sur toutes les recettes si un filtre viderait un créneau, pour ne jamais casser la génération). Corrigé en même temps : le pool de recettes n'avait aucun plat de plus de 25 min ni aucun plat froid le soir, ce qui rendait "30 min +" et "froid le soir" silencieusement inopérants — ajout de 3 recettes soir froides et allongement de 5 recettes existantes pour couvrir la bande "30 min +".
 
-## Planning : permutation entre jours (nouveau)
-- [x] ~~Pas de moyen d'échanger un plat avec un autre jour~~ → résolu : chaque repas peut être permuté avec le même créneau d'un autre jour, avec un avertissement si un plat très frais (tier 1) est repoussé tard dans la semaine.
+## Planning : permutation entre jours (mis à jour)
+- [x] ~~Pas de moyen d'échanger un plat avec un autre jour~~ → résolu : chaque repas peut être permuté avec le même créneau d'un autre jour (un midi ne se propose qu'avec d'autres midis, etc.), avec un avertissement si un plat très frais (tier 1) est repoussé tard dans la semaine.
+- [x] ~~Un bouton "Remplacer automatiquement" cohabitait avec la permutation~~ → retiré de Planning : sur cet onglet, on ne peut plus qu'échanger avec un repas équivalent d'un autre jour. Le remplacement automatique par une nouvelle recette reste disponible ailleurs (Courses via "Régénérer un repas", Aujourd'hui via "Remplacement d'urgence").
 - [ ] L'avertissement de fraîcheur est un seuil simple (tier + jour cible), pas un vrai calcul de DLC produit par produit.
 
 ## Moteur IA / Planning (B2C)

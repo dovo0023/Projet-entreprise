@@ -1,9 +1,9 @@
-import { AlertTriangle, ArrowLeftRight, RefreshCcw, Sparkles, Timer } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, Sparkles, Timer } from 'lucide-react'
 import { useState } from 'react'
 import { WEEK_DAYS } from '../../data/mock'
 import { useApp } from '../../context/AppContext'
 import { getRecipeTemplate } from '../../engine/planner'
-import { Button, Card, Pill, SectionTitle } from '../../components/ui'
+import { Card, Pill, SectionTitle } from '../../components/ui'
 import type { Meal } from '../../types'
 
 const SLOT_ORDER: Meal['slot'][] = ['petit-dejeuner', 'encas-matin', 'midi', 'encas-apresmidi', 'soir']
@@ -31,7 +31,7 @@ function isRiskySwapTarget(meal: Meal, targetDay: number) {
 }
 
 export default function PlanningScreen() {
-  const { weekPlan, replaceMeal, swapMeals, weekStats } = useApp()
+  const { weekPlan, swapMeals, weekStats } = useApp()
   const [expandedMealId, setExpandedMealId] = useState<string | null>(null)
 
   return (
@@ -104,11 +104,7 @@ export default function PlanningScreen() {
 
                       {isOpen && (
                         <div className="mt-3 pt-3 border-t border-black/5 fade-up flex flex-col gap-2.5">
-                          <Button variant="ghost" className="!py-2 text-[12.5px]" onClick={() => replaceMeal(meal.id)}>
-                            <RefreshCcw size={13} /> Remplacer automatiquement
-                          </Button>
-
-                          <p className="text-[11px] font-bold text-ink-soft/60 uppercase mt-1">Permuter avec un autre jour</p>
+                          <p className="text-[11px] font-bold text-ink-soft/60 uppercase">Permuter avec un autre jour ({SLOT_LABEL[meal.slot].toLowerCase()})</p>
                           <div className="flex flex-col gap-1.5">
                             {otherDaysSameSlot.map((other) => {
                               const risky = isRiskySwapTarget(meal, other.day) || isRiskySwapTarget(other, meal.day)
