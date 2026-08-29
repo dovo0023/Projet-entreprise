@@ -17,23 +17,32 @@ const SLOT_LABEL: Record<Meal['slot'], string> = {
 const SLOT_ORDER: Meal['slot'][] = ['encas-matin', 'midi', 'encas-apresmidi', 'soir']
 
 export default function MenuStep() {
-  const { weekPlan, replaceMeal, setCourseStep } = useApp()
+  const { weekPlan, replaceMeal, applyPreferences, setCourseStep } = useApp()
   const [prefsOpen, setPrefsOpen] = useState(false)
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden relative">
-      <div className="px-5 pt-5 pb-3 shrink-0 flex items-center justify-between">
-        <div>
+      <div className="px-5 pt-5 pb-3 shrink-0 flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-xl font-extrabold text-ink">Votre menu de la semaine</h1>
           <p className="text-[13px] text-ink-soft mt-1">Un plat ne vous convient pas ? Régénérez-le.</p>
         </div>
-        <button
-          onClick={() => setPrefsOpen(true)}
-          className="tap w-10 h-10 rounded-full bg-ink text-cream flex items-center justify-center shrink-0"
-          aria-label="Préférences"
-        >
-          <SlidersHorizontal size={16} />
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={applyPreferences}
+            className="tap w-10 h-10 rounded-full bg-black/5 text-ink flex items-center justify-center shrink-0"
+            aria-label="Régénérer le menu de la semaine"
+          >
+            <RefreshCcw size={16} />
+          </button>
+          <button
+            onClick={() => setPrefsOpen(true)}
+            className="tap w-10 h-10 rounded-full bg-ink text-cream flex items-center justify-center shrink-0"
+            aria-label="Préférences"
+          >
+            <SlidersHorizontal size={16} />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-4 flex flex-col gap-6">

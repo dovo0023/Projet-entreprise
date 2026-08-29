@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ChatMessage, DeliveryMode, MacroTargets, Meal, PlannerConstraints, RecipeTemplate, ShoppingItem, UserProfile } from '../types'
 import {
   applyMealChoice,
@@ -186,6 +186,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [chosenStoreId, setChosenStoreId] = useState<string | null>(persisted?.chosenStoreId ?? null)
   const [chosenDeliveryMode, setChosenDeliveryMode] = useState<DeliveryMode | null>(persisted?.chosenDeliveryMode ?? null)
   const [orderPlaced, setOrderPlaced] = useState(persisted?.orderPlaced ?? false)
+  const regenSeed = useRef(0)
 
   const weekStats = useMemo(() => computeWeekStats(weekPlan, targets, constraints, RECIPE_COST_MAP), [weekPlan, targets, constraints])
   const storeQuotes = useMemo(() => quoteStores(shoppingList.filter((i) => !i.haveAtHome)), [shoppingList])
@@ -243,7 +244,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   function applyPreferences() {
-    const plan = generateWeekPlan(profile, targets, constraints)
+    regenSeed.current += 1
+    const plan = generateWeekPlan(profile, targets, constraints, regenSeed.current)
     applyNewPlan(plan)
   }
 

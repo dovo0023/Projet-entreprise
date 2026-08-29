@@ -111,6 +111,17 @@ interface ScoreContext {
   totalDays: number
   budgetSpent: number
   budgetSlotsRemaining: number
+  seed: number
+}
+
+/** Petit bruit déterministe (0..1) pour départager des recettes à score presque égal, sans jamais
+ *  l'emporter sur un vrai écart de macros/contraintes. Même seed + même clé => même valeur. */
+function seededJitter(seed: number, key: string): number {
+  let h = seed | 0
+  for (let i = 0; i < key.length; i++) {
+    h = (Math.imul(h, 31) + key.charCodeAt(i)) | 0
+  }
+  return (h >>> 0) / 4294967295
 }
 
 /** Score composite : plus bas = meilleur choix. Combine macros, temps, chaud/froid, budget, fraîcheur et variété. */
@@ -148,6 +159,11 @@ function scoreRecipe(recipe: RecipeTemplate, ctx: ScoreContext): number {
   const used = ctx.usageCount.get(recipe.id) ?? 0
   score += used * 0.9
 
+  // Bruit de régénération : à contraintes égales, "Régénérer" doit pouvoir proposer un plat différent.
+  if (ctx.seed) {
+    score += seededJitter(ctx.seed, `${recipe.id}-${ctx.slot}-${ctx.dayIndex}`) * 0.45
+  }
+
   return score
 }
 
@@ -180,8 +196,12 @@ interface Assignment {
   recipe: RecipeTemplate
 }
 
-/** Génère un planning de 7 jours en optimisant simultanément macros, temps, chaud/froid, budget, fraîcheur et variété. */
-export function generateWeekPlan(profile: UserProfile, targets: MacroTargets, constraints: PlannerConstraints): Meal[] {
+/**
+ * Génère un planning de 7 jours en optimisant simultanément macros, temps, chaud/froid, budget,
+ * fraîcheur et variété. `seed` (0 = aucun bruit) permet à "Régénérer" de proposer une variante
+ * différente même quand aucune préférence n'a changé.
+ */
+export function generateWeekPlan(profile: UserProfile, targets: MacroTargets, constraints: PlannerConstraints, seed = 0): Meal[] {
   const eligible = RECIPE_POOL.filter((r) => isEligible(r, profile))
   const byRecipeSlot: Record<RecipeSlot, RecipeTemplate[]> = {
     'petit-dejeuner': eligible.filter((r) => r.slot === 'petit-dejeuner'),
@@ -211,6 +231,7 @@ export function generateWeekPlan(profile: UserProfile, targets: MacroTargets, co
         totalDays: 7,
         budgetSpent,
         budgetSlotsRemaining: totalSlots - slotsFilled,
+        seed,
       }
       let best = candidates[0]
       let bestScore = Infinity
@@ -242,11 +263,11 @@ export function generateWeekPlan(profile: UserProfile, targets: MacroTargets, co
           if (ai.recipe.id === aj.recipe.id) continue
 
           const scoreBefore =
-            scoreRecipe(ai.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id))) +
-            scoreRecipe(aj.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id)))
+            scoreRecipe(ai.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id), seed)) +
+            scoreRecipe(aj.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id), seed))
           const scoreAfter =
-            scoreRecipe(aj.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id))) +
-            scoreRecipe(ai.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id)))
+            scoreRecipe(aj.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id), seed)) +
+            scoreRecipe(ai.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id), seed))
 
           if (scoreAfter < scoreBefore - 0.05) {
             assignments[i] = { ...ai, recipe: aj.recipe }
@@ -272,6 +293,7 @@ function buildCtx(
   targets: MacroTargets,
   constraints: PlannerConstraints,
   usageCount: Map<string, number>,
+  seed: number,
 ): ScoreContext {
   return {
     slot,
@@ -282,6 +304,7 @@ function buildCtx(
     totalDays: 7,
     budgetSpent: 0,
     budgetSlotsRemaining: 21,
+    seed,
   }
 }
 
@@ -319,6 +342,7 @@ function rankAlternatives(plan: Meal[], mealId: string, profile: UserProfile, ta
     totalDays: 7,
     budgetSpent: 0,
     budgetSlotsRemaining: 21,
+    seed: 0,
   }
 
   return [...eligible].sort((a, b) => scoreRecipe(a, ctx) - scoreRecipe(b, ctx))

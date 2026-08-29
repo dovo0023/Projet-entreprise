@@ -37,7 +37,7 @@ export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
     <div className="absolute inset-0 z-20 bg-cream flex flex-col">
       <div className="flex items-center justify-between px-5 pt-[calc(env(safe-area-inset-top)+16px)] pb-3 border-b border-black/5 shrink-0">
         <h1 className="text-lg font-extrabold text-ink">Préférences</h1>
-        <button onClick={onClose} className="tap w-8 h-8 rounded-full bg-black/5 flex items-center justify-center" aria-label="Fermer">
+        <button onClick={onClose} className="tap w-8 h-8 rounded-full bg-black/5 flex items-center justify-center" aria-label="Fermer sans régénérer">
           <X size={16} />
         </button>
       </div>
@@ -168,7 +168,7 @@ export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
 
       <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-3 shrink-0 border-t border-black/5">
         <Button full onClick={apply}>
-          Appliquer les préférences
+          Valider et régénérer le menu
         </Button>
       </div>
     </div>
