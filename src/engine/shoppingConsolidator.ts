@@ -80,7 +80,7 @@ export function consolidateIngredients(plan: Meal[]): ShoppingItem[] {
       name: group.ingredient.name,
       quantity: quantityLabel,
       category: categoryFor(group.ingredient.name),
-      checked: false,
+      haveAtHome: false,
     })
   }
 

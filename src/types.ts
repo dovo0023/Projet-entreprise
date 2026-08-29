@@ -75,7 +75,18 @@ export interface ShoppingItem {
   name: string
   quantity: string
   category: string
-  checked: boolean
+  haveAtHome: boolean
+}
+
+export type DeliveryMode = 'click_collect' | 'click_collect_delivery'
+
+export interface Store {
+  id: string
+  name: string
+  distanceKm: number
+  logo: string
+  priceMultiplier: number
+  deliveryModes: DeliveryMode[]
 }
 
 export interface WeightEntry {

@@ -214,19 +214,24 @@ function buildCtx(
   }
 }
 
-/** Remplace une recette précise du planning par la meilleure alternative disponible pour ce créneau. */
-export function replaceMealInPlan(plan: Meal[], mealId: string, profile: UserProfile, targets: MacroTargets, constraints: PlannerConstraints): Meal[] {
-  const current = plan.find((m) => m.id === mealId)
-  if (!current) return plan
+function recipeIdFromMealId(mealId: string): string {
+  return mealId.replace(/-d\d+$/, '')
+}
 
-  const currentRecipeId = current.id.replace(/-d\d+$/, '')
-  const usedElsewhere = new Set(
-    plan.filter((m) => m.id !== mealId && m.slot === current.slot).map((m) => m.id.replace(/-d\d+$/, '')),
-  )
+/** Retrouve la fiche recette d'origine d'un repas du planning (pour connaître son tier de fraîcheur réel). */
+export function getRecipeTemplate(mealId: string): RecipeTemplate | undefined {
+  return RECIPE_POOL.find((r) => r.id === recipeIdFromMealId(mealId))
+}
+
+/** Classe les recettes candidates pour le créneau d'un repas donné, meilleure en premier. */
+function rankAlternatives(plan: Meal[], mealId: string, profile: UserProfile, targets: MacroTargets, constraints: PlannerConstraints): RecipeTemplate[] {
+  const current = plan.find((m) => m.id === mealId)
+  if (!current) return []
+
+  const currentRecipeId = recipeIdFromMealId(current.id)
+  const usedElsewhere = new Set(plan.filter((m) => m.id !== mealId && m.slot === current.slot).map((m) => recipeIdFromMealId(m.id)))
 
   const eligible = RECIPE_POOL.filter((r) => r.slot === current.slot && isEligible(r, profile) && r.id !== currentRecipeId)
-  if (eligible.length === 0) return plan
-
   const usageCount = new Map<string, number>()
   usedElsewhere.forEach((id) => usageCount.set(id, 1))
 
@@ -240,17 +245,98 @@ export function replaceMealInPlan(plan: Meal[], mealId: string, profile: UserPro
     budgetSlotsRemaining: 21,
   }
 
-  let best = eligible[0]
-  let bestScore = Infinity
-  for (const candidate of eligible) {
-    const s = scoreRecipe(candidate, ctx)
-    if (s < bestScore) {
-      bestScore = s
-      best = candidate
-    }
-  }
+  return [...eligible].sort((a, b) => scoreRecipe(a, ctx) - scoreRecipe(b, ctx))
+}
 
+/** Remplace une recette précise du planning par la meilleure alternative disponible pour ce créneau. */
+export function replaceMealInPlan(plan: Meal[], mealId: string, profile: UserProfile, targets: MacroTargets, constraints: PlannerConstraints): Meal[] {
+  const current = plan.find((m) => m.id === mealId)
+  const best = rankAlternatives(plan, mealId, profile, targets, constraints)[0]
+  if (!current || !best) return plan
   return plan.map((m) => (m.id === mealId ? toMeal(best, current.day) : m))
+}
+
+/** Renvoie jusqu'à `count` propositions de recettes alternatives pour un repas, pour laisser l'utilisateur choisir. */
+export function getMealAlternatives(
+  plan: Meal[],
+  mealId: string,
+  profile: UserProfile,
+  targets: MacroTargets,
+  constraints: PlannerConstraints,
+  count = 3,
+): RecipeTemplate[] {
+  return rankAlternatives(plan, mealId, profile, targets, constraints).slice(0, count)
+}
+
+/** Applique un choix explicite de recette (proposée par getMealAlternatives) à un repas du planning. */
+export function applyMealChoice(plan: Meal[], mealId: string, recipeId: string): Meal[] {
+  const current = plan.find((m) => m.id === mealId)
+  const recipe = RECIPE_POOL.find((r) => r.id === recipeId)
+  if (!current || !recipe) return plan
+  return plan.map((m) => (m.id === mealId ? toMeal(recipe, current.day) : m))
+}
+
+/**
+ * Permute deux repas du même créneau entre deux jours (ex. avancer un plat très frais, repousser
+ * un plat de longue conservation). La DLC affichée est recalculée pour rester cohérente avec le
+ * nouveau jour de préparation.
+ */
+export function swapMealsBetweenDays(plan: Meal[], mealIdA: string, mealIdB: string): Meal[] {
+  const a = plan.find((m) => m.id === mealIdA)
+  const b = plan.find((m) => m.id === mealIdB)
+  if (!a || !b || a.slot !== b.slot || a.day === b.day) return plan
+
+  const recipeA = RECIPE_POOL.find((r) => r.id === recipeIdFromMealId(a.id))
+  const recipeB = RECIPE_POOL.find((r) => r.id === recipeIdFromMealId(b.id))
+  if (!recipeA || !recipeB) return plan
+
+  const updated = plan.map((m) => {
+    if (m.id === mealIdA) return toMeal(recipeA, b.day)
+    if (m.id === mealIdB) return toMeal(recipeB, a.day)
+    return m
+  })
+
+  // Un repas change de jour sans bouger dans le tableau : on retrie pour que l'ordre
+  // d'affichage (petit-déj → midi → soir, jour par jour) reste cohérent après la permutation.
+  const slotOrder: Record<Meal['slot'], number> = { 'petit-dejeuner': 0, midi: 1, soir: 2 }
+  return [...updated].sort((x, y) => x.day - y.day || slotOrder[x.slot] - slotOrder[y.slot])
+}
+
+export interface MenuOption {
+  id: string
+  label: string
+  description: string
+  constraints: PlannerConstraints
+  plan: Meal[]
+}
+
+/** Génère plusieurs propositions de menus de la semaine parmi lesquelles choisir (ou personnaliser). */
+export function generateMenuOptions(profile: UserProfile, targets: MacroTargets): MenuOption[] {
+  const presets: { id: string; label: string; description: string; constraints: PlannerConstraints }[] = [
+    {
+      id: 'equilibre',
+      label: 'Équilibré',
+      description: 'Le meilleur compromis calories, macros et variété.',
+      constraints: { maxPrepTime: null, weeklyBudget: null, macroFocus: 'equilibre' },
+    },
+    {
+      id: 'rapide',
+      label: 'Rapide',
+      description: 'Recettes courtes, pour la semaine sans temps à perdre.',
+      constraints: { maxPrepTime: 15, weeklyBudget: null, macroFocus: 'equilibre' },
+    },
+    {
+      id: 'economique',
+      label: 'Économique',
+      description: 'Panier resserré, sans sacrifier l’équilibre nutritionnel.',
+      constraints: { maxPrepTime: null, weeklyBudget: 40, macroFocus: 'equilibre' },
+    },
+  ]
+
+  return presets.map((preset) => ({
+    ...preset,
+    plan: generateWeekPlan(profile, targets, preset.constraints),
+  }))
 }
 
 export interface WeekStats {

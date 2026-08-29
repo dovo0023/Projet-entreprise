@@ -1,4 +1,4 @@
-import { LayoutGrid, LogOut, Settings, Smartphone } from 'lucide-react'
+import { LayoutGrid, LogOut, Settings } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { PATIENTS } from '../data/patients'
 
@@ -46,12 +46,6 @@ export default function ProLayout() {
         </nav>
 
         <div className="mt-auto flex flex-col gap-2">
-          <button
-            onClick={() => navigate('/')}
-            className="tap flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-cream/70 hover:bg-cream/10"
-          >
-            <Smartphone size={16} /> Voir l’app patient
-          </button>
           <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-cream/5">
             <div className="w-8 h-8 rounded-full bg-berry-400 flex items-center justify-center text-[13px] font-bold shrink-0">EM</div>
             <div className="min-w-0 flex-1">

@@ -1,7 +1,10 @@
-import { Flame, RefreshCcw, Repeat, Sparkles, Timer, Wallet } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, RefreshCcw, Sparkles, Timer } from 'lucide-react'
+import { useState } from 'react'
 import { WEEK_DAYS } from '../../data/mock'
 import { useApp } from '../../context/AppContext'
+import { getRecipeTemplate } from '../../engine/planner'
 import { Button, Card, Pill, SectionTitle } from '../../components/ui'
+import type { Meal } from '../../types'
 
 function freshnessLabel(freshnessDay: number) {
   if (freshnessDay <= 2) return { label: `DLC J${freshnessDay}`, tone: 'berry' as const }
@@ -9,19 +12,24 @@ function freshnessLabel(freshnessDay: number) {
   return { label: `DLC J${freshnessDay}`, tone: 'leaf' as const }
 }
 
-export default function PlanningScreen() {
-  const { weekPlan, constraints, setConstraints, regenerateWeek, replaceMeal, weekStats } = useApp()
+/** Avertit si un plat très frais (tier 1) est repoussé trop tard dans la semaine de livraison. */
+function isRiskySwapTarget(meal: Meal, targetDay: number) {
+  const tier = getRecipeTemplate(meal.id)?.freshnessTier ?? 2
+  if (tier === 1 && targetDay >= 4) return true
+  if (tier === 2 && targetDay >= 6) return true
+  return false
+}
 
-  const fastFilterActive = constraints.maxPrepTime === 15
-  const proteinFilterActive = constraints.macroFocus === 'riche_proteines'
-  const budgetActive = constraints.weeklyBudget != null
+export default function PlanningScreen() {
+  const { weekPlan, replaceMeal, swapMeals, weekStats } = useApp()
+  const [expandedMealId, setExpandedMealId] = useState<string | null>(null)
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar">
       <div className="px-5 pt-5 pb-2 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-extrabold text-ink">Planning de la semaine</h1>
-          <p className="text-[13px] text-ink-soft">7 jours calibrés par le moteur à vos contraintes</p>
+          <p className="text-[13px] text-ink-soft">Vue calendrier de vos 7 jours</p>
         </div>
       </div>
 
@@ -45,67 +53,10 @@ export default function PlanningScreen() {
               <p className="text-[10.5px] text-cream/60 mt-0.5">prépa. moyenne</p>
             </div>
           </div>
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-cream/10">
-            <span className="text-[12px] text-cream/70">Panier estimé</span>
-            <span className={`text-[13px] font-bold ${weekStats.budgetOk ? 'text-leaf-400' : 'text-berry-400'}`}>
-              {weekStats.totalCost.toFixed(2)} € {constraints.weeklyBudget != null && `/ ${constraints.weeklyBudget} €`}
-            </span>
-          </div>
+          <p className="text-[11px] text-cream/50 mt-3 pt-3 border-t border-cream/10">
+            Envie de changer de menu ou d’ajuster votre budget ? Ça se passe dans l’onglet Courses.
+          </p>
         </Card>
-      </div>
-
-      <div className="px-5 mt-4">
-        <SectionTitle>Réglages du plan</SectionTitle>
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setConstraints({ maxPrepTime: fastFilterActive ? null : 15 })}
-            className={`tap flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-bold border ${
-              fastFilterActive ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
-            }`}
-          >
-            <Timer size={13} /> Repas &lt; 15 min
-          </button>
-          <button
-            onClick={() => setConstraints({ macroFocus: proteinFilterActive ? 'equilibre' : 'riche_proteines' })}
-            className={`tap flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-bold border ${
-              proteinFilterActive ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
-            }`}
-          >
-            <Flame size={13} /> Riche en protéines
-          </button>
-          <button
-            onClick={() => setConstraints({ weeklyBudget: budgetActive ? null : 50 })}
-            className={`tap flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-bold border ${
-              budgetActive ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
-            }`}
-          >
-            <Wallet size={13} /> Budget maîtrisé
-          </button>
-        </div>
-
-        {budgetActive && (
-          <div className="mt-3 bg-white rounded-2xl border border-black/5 px-4 py-3">
-            <div className="flex justify-between text-[12px] mb-1.5">
-              <span className="font-bold text-ink-soft">Budget hebdomadaire max</span>
-              <span className="font-extrabold text-ink">{constraints.weeklyBudget} €</span>
-            </div>
-            <input
-              type="range"
-              min={25}
-              max={90}
-              step={5}
-              value={constraints.weeklyBudget ?? 50}
-              onChange={(e) => setConstraints({ weeklyBudget: Number(e.target.value) })}
-              className="w-full accent-leaf-500"
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="px-5 mt-4">
-        <Button variant="dark" full className="!py-3" onClick={regenerateWeek}>
-          <RefreshCcw size={15} /> Régénérer la semaine
-        </Button>
       </div>
 
       <div className="px-5 mt-6 flex flex-col gap-6 pb-8">
@@ -121,27 +72,53 @@ export default function PlanningScreen() {
               <div className="flex flex-col gap-2.5">
                 {dayMeals.map((meal) => {
                   const fresh = freshnessLabel(meal.freshnessDay)
+                  const isOpen = expandedMealId === meal.id
+                  const otherDaysSameSlot = weekPlan.filter((m) => m.slot === meal.slot && m.id !== meal.id).sort((a, b) => a.day - b.day)
+
                   return (
-                    <Card key={meal.id} className="!p-3 flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-leaf-50 flex items-center justify-center text-xl shrink-0">
-                        {meal.image}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-ink text-[13.5px] truncate">{meal.name}</p>
-                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                          <Pill>
-                            <Timer size={10} /> {meal.prepTime} min
-                          </Pill>
-                          <Pill tone={fresh.tone}>{fresh.label}</Pill>
+                    <Card key={meal.id} className="!p-3">
+                      <button className="w-full flex items-center gap-3 text-left" onClick={() => setExpandedMealId(isOpen ? null : meal.id)}>
+                        <div className="w-11 h-11 rounded-xl bg-leaf-50 flex items-center justify-center text-xl shrink-0">{meal.image}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-ink text-[13.5px] truncate">{meal.name}</p>
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            <Pill>
+                              <Timer size={10} /> {meal.prepTime} min
+                            </Pill>
+                            <Pill tone={fresh.tone}>{fresh.label}</Pill>
+                          </div>
                         </div>
-                      </div>
-                      <button
-                        onClick={() => replaceMeal(meal.id)}
-                        className="tap w-8 h-8 rounded-full bg-black/5 flex items-center justify-center shrink-0"
-                        aria-label="Remplacer la recette"
-                      >
-                        <Repeat size={14} className="text-ink-soft" />
+                        <ArrowLeftRight size={15} className="text-ink-soft/40 shrink-0" />
                       </button>
+
+                      {isOpen && (
+                        <div className="mt-3 pt-3 border-t border-black/5 fade-up flex flex-col gap-2.5">
+                          <Button variant="ghost" className="!py-2 text-[12.5px]" onClick={() => replaceMeal(meal.id)}>
+                            <RefreshCcw size={13} /> Remplacer automatiquement
+                          </Button>
+
+                          <p className="text-[11px] font-bold text-ink-soft/60 uppercase mt-1">Permuter avec un autre jour</p>
+                          <div className="flex flex-col gap-1.5">
+                            {otherDaysSameSlot.map((other) => {
+                              const risky = isRiskySwapTarget(meal, other.day) || isRiskySwapTarget(other, meal.day)
+                              return (
+                                <button
+                                  key={other.id}
+                                  onClick={() => {
+                                    swapMeals(meal.id, other.id)
+                                    setExpandedMealId(null)
+                                  }}
+                                  className="tap flex items-center gap-2.5 bg-black/[0.03] rounded-2xl px-3 py-2 text-left"
+                                >
+                                  <span className="text-[11px] font-bold text-ink-soft/60 w-16 shrink-0">{WEEK_DAYS[other.day - 1]}</span>
+                                  <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-ink truncate">{other.name}</span>
+                                  {risky && <AlertTriangle size={13} className="text-clementine-500 shrink-0" />}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </Card>
                   )
                 })}

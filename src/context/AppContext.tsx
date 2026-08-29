@@ -1,7 +1,19 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { ChatMessage, MacroTargets, Meal, PlannerConstraints, ShoppingItem, UserProfile } from '../types'
-import { computeWeekStats, generateWeekPlan, RECIPE_COST_MAP, replaceMealInPlan, type WeekStats } from '../engine/planner'
+import type { ChatMessage, DeliveryMode, MacroTargets, Meal, PlannerConstraints, RecipeTemplate, ShoppingItem, UserProfile } from '../types'
+import {
+  applyMealChoice,
+  computeWeekStats,
+  generateMenuOptions,
+  generateWeekPlan,
+  getMealAlternatives,
+  RECIPE_COST_MAP,
+  replaceMealInPlan,
+  swapMealsBetweenDays,
+  type MenuOption,
+  type WeekStats,
+} from '../engine/planner'
 import { consolidateIngredients } from '../engine/shoppingConsolidator'
+import { quoteStores, type StoreQuote } from '../engine/storeQuote'
 
 export const DEFAULT_PROFILE: UserProfile = {
   firstName: 'Camille',
@@ -25,12 +37,14 @@ export const DEFAULT_CONSTRAINTS: PlannerConstraints = {
 
 export const PATIENT_SHARE_CODE = 'NF-72K9'
 
+export type CourseStep = 'menu' | 'dishes' | 'ingredients' | 'store'
+
 const DEFAULT_MESSAGES: ChatMessage[] = [
   { from: 'patient', text: 'Bonjour Dr Marchand, le menu de cette semaine me convient très bien !', time: 'Lun 09:14' },
   { from: 'praticien', text: 'Super Camille, continuez ainsi. On garde le cap sur -350 kcal/j.', time: 'Lun 10:02' },
 ]
 
-const STORAGE_KEY = 'nutriflow_b2c_state_v1'
+const STORAGE_KEY = 'nutriflow_b2c_state_v2'
 
 interface PersistedState {
   onboarded: boolean
@@ -40,8 +54,11 @@ interface PersistedState {
   consumedMealIds: string[]
   consumed: MacroTargets
   shoppingList: ShoppingItem[]
-  sentToDrive: boolean
   messages: ChatMessage[]
+  courseStep: CourseStep
+  chosenStoreId: string | null
+  chosenDeliveryMode: DeliveryMode | null
+  orderPlaced: boolean
 }
 
 function loadPersisted(): Partial<PersistedState> | null {
@@ -76,9 +93,14 @@ export function computeTargets(p: UserProfile): MacroTargets {
   return { kcal, protein, carbs, fat }
 }
 
-function mergeShoppingChecks(newItems: ShoppingItem[], prevItems: ShoppingItem[]): ShoppingItem[] {
-  const checkedNames = new Set(prevItems.filter((i) => i.checked).map((i) => i.name.toLowerCase()))
-  return newItems.map((i) => (checkedNames.has(i.name.toLowerCase()) ? { ...i, checked: true } : i))
+/** Le flux courses (menu → plats → ingrédients → magasin) ne porte que sur les repas de midi et du soir. */
+function shoppableMeals(plan: Meal[]): Meal[] {
+  return plan.filter((m) => m.slot === 'midi' || m.slot === 'soir')
+}
+
+function mergeHaveAtHome(newItems: ShoppingItem[], prevItems: ShoppingItem[]): ShoppingItem[] {
+  const owned = new Set(prevItems.filter((i) => i.haveAtHome).map((i) => i.name.toLowerCase()))
+  return newItems.map((i) => (owned.has(i.name.toLowerCase()) ? { ...i, haveAtHome: true } : i))
 }
 
 interface AppState {
@@ -91,18 +113,32 @@ interface AppState {
   weekPlan: Meal[]
   constraints: PlannerConstraints
   setConstraints: (c: Partial<PlannerConstraints>) => void
-  regenerateWeek: () => void
-  replaceMeal: (mealId: string) => void
   weekStats: WeekStats
+
+  menuOptions: MenuOption[]
+  selectMenuOption: (optionId: string) => void
+  buildCustomMenu: () => void
+
+  courseStep: CourseStep
+  setCourseStep: (s: CourseStep) => void
+
+  mealAlternatives: (mealId: string, count?: number) => RecipeTemplate[]
+  chooseMealAlternative: (mealId: string, recipeId: string) => void
+  swapMeals: (mealIdA: string, mealIdB: string) => void
+  replaceMeal: (mealId: string) => void
 
   consumedMealIds: string[]
   toggleMealConsumed: (mealId: string, kcal: number, protein: number, carbs: number, fat: number) => void
   consumed: MacroTargets
 
   shoppingList: ShoppingItem[]
-  toggleShoppingItem: (id: string) => void
-  sentToDrive: boolean
-  sendToDrive: () => void
+  toggleHaveAtHome: (id: string) => void
+  storeQuotes: StoreQuote[]
+  chosenStoreId: string | null
+  chosenDeliveryMode: DeliveryMode | null
+  orderPlaced: boolean
+  placeOrder: (storeId: string, mode: DeliveryMode) => void
+  resetOrder: () => void
 
   messages: ChatMessage[]
   sendMessage: (from: ChatMessage['from'], text: string) => void
@@ -118,12 +154,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [constraints, setConstraintsState] = useState<PlannerConstraints>(persisted?.constraints ?? DEFAULT_CONSTRAINTS)
 
   const targets = useMemo(() => computeTargets(profile), [profile])
+  const menuOptions = useMemo(() => generateMenuOptions(profile, targets), [profile, targets])
 
   const [initial] = useState(() => {
     if (persisted?.weekPlan?.length) {
       return {
         plan: persisted.weekPlan,
-        shoppingList: persisted.shoppingList ?? consolidateIngredients(persisted.weekPlan),
+        shoppingList: persisted.shoppingList ?? consolidateIngredients(shoppableMeals(persisted.weekPlan)),
         consumedMealIds: persisted.consumedMealIds ?? [],
         consumed: persisted.consumed ?? { kcal: 0, protein: 0, carbs: 0, fat: 0 },
       }
@@ -134,7 +171,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const breakfast = plan.find((m) => m.day === 1 && m.slot === 'petit-dejeuner')
     return {
       plan,
-      shoppingList: consolidateIngredients(plan),
+      shoppingList: consolidateIngredients(shoppableMeals(plan)),
       consumedMealIds: breakfast ? [breakfast.id] : [],
       consumed: breakfast
         ? { kcal: breakfast.kcal, protein: breakfast.protein, carbs: breakfast.carbs, fat: breakfast.fat }
@@ -146,22 +183,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [consumedMealIds, setConsumedMealIds] = useState<string[]>(initial.consumedMealIds)
   const [consumed, setConsumed] = useState<MacroTargets>(initial.consumed)
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(initial.shoppingList)
-  const [sentToDrive, setSentToDrive] = useState(persisted?.sentToDrive ?? false)
   const [messages, setMessages] = useState<ChatMessage[]>(persisted?.messages ?? DEFAULT_MESSAGES)
 
+  const [courseStep, setCourseStep] = useState<CourseStep>(persisted?.courseStep ?? 'menu')
+  const [chosenStoreId, setChosenStoreId] = useState<string | null>(persisted?.chosenStoreId ?? null)
+  const [chosenDeliveryMode, setChosenDeliveryMode] = useState<DeliveryMode | null>(persisted?.chosenDeliveryMode ?? null)
+  const [orderPlaced, setOrderPlaced] = useState(persisted?.orderPlaced ?? false)
+
   const weekStats = useMemo(() => computeWeekStats(weekPlan, targets, constraints, RECIPE_COST_MAP), [weekPlan, targets, constraints])
+  const storeQuotes = useMemo(() => quoteStores(shoppingList.filter((i) => !i.haveAtHome)), [shoppingList])
 
   useEffect(() => {
     try {
-      const payload: PersistedState = { onboarded, profile, constraints, weekPlan, consumedMealIds, consumed, shoppingList, sentToDrive, messages }
+      const payload: PersistedState = {
+        onboarded,
+        profile,
+        constraints,
+        weekPlan,
+        consumedMealIds,
+        consumed,
+        shoppingList,
+        messages,
+        courseStep,
+        chosenStoreId,
+        chosenDeliveryMode,
+        orderPlaced,
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
     } catch {
       // Stockage indisponible (navigation privée, quota) : la session continue simplement en mémoire.
     }
-  }, [onboarded, profile, constraints, weekPlan, consumedMealIds, consumed, shoppingList, sentToDrive, messages])
+  }, [onboarded, profile, constraints, weekPlan, consumedMealIds, consumed, shoppingList, messages, courseStep, chosenStoreId, chosenDeliveryMode, orderPlaced])
 
   function setProfile(p: Partial<UserProfile>) {
     setProfileState((prev) => ({ ...prev, ...p }))
+  }
+
+  function applyNewPlan(plan: Meal[]) {
+    setWeekPlan(plan)
+    setConsumedMealIds([])
+    setConsumed({ kcal: 0, protein: 0, carbs: 0, fat: 0 })
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(plan)), prev))
+    setChosenStoreId(null)
+    setChosenDeliveryMode(null)
+    setOrderPlaced(false)
   }
 
   function completeOnboarding() {
@@ -171,38 +236,68 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const breakfast = plan.find((m) => m.day === 1 && m.slot === 'petit-dejeuner')
     setConsumedMealIds(breakfast ? [breakfast.id] : [])
     setConsumed(breakfast ? { kcal: breakfast.kcal, protein: breakfast.protein, carbs: breakfast.carbs, fat: breakfast.fat } : { kcal: 0, protein: 0, carbs: 0, fat: 0 })
-    setShoppingList((prev) => mergeShoppingChecks(consolidateIngredients(plan), prev))
-    setSentToDrive(false)
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(plan)), prev))
+    setCourseStep('menu')
+    setOrderPlaced(false)
   }
 
   function setConstraints(c: Partial<PlannerConstraints>) {
     setConstraintsState((prev) => ({ ...prev, ...c }))
   }
 
-  function regenerateWeek() {
+  function selectMenuOption(optionId: string) {
+    const option = menuOptions.find((o) => o.id === optionId)
+    if (!option) return
+    setConstraintsState(option.constraints)
+    applyNewPlan(option.plan)
+    setCourseStep('dishes')
+  }
+
+  function buildCustomMenu() {
     const plan = generateWeekPlan(profile, targets, constraints)
-    setWeekPlan(plan)
-    setConsumedMealIds([])
-    setConsumed({ kcal: 0, protein: 0, carbs: 0, fat: 0 })
-    setShoppingList((prev) => mergeShoppingChecks(consolidateIngredients(plan), prev))
-    setSentToDrive(false)
+    applyNewPlan(plan)
+    setCourseStep('dishes')
   }
 
   function replaceMeal(mealId: string) {
     const old = weekPlan.find((m) => m.id === mealId)
     const newPlan = replaceMealInPlan(weekPlan, mealId, profile, targets, constraints)
     setWeekPlan(newPlan)
+    subtractIfConsumed(old, mealId)
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan)), prev))
+  }
 
-    if (old && consumedMealIds.includes(mealId)) {
-      setConsumedMealIds((prev) => prev.filter((id) => id !== mealId))
-      setConsumed((c) => ({
-        kcal: Math.max(0, c.kcal - old.kcal),
-        protein: Math.max(0, c.protein - old.protein),
-        carbs: Math.max(0, c.carbs - old.carbs),
-        fat: Math.max(0, c.fat - old.fat),
-      }))
-    }
-    setShoppingList((prev) => mergeShoppingChecks(consolidateIngredients(newPlan), prev))
+  function mealAlternatives(mealId: string, count = 3): RecipeTemplate[] {
+    return getMealAlternatives(weekPlan, mealId, profile, targets, constraints, count)
+  }
+
+  function chooseMealAlternative(mealId: string, recipeId: string) {
+    const old = weekPlan.find((m) => m.id === mealId)
+    const newPlan = applyMealChoice(weekPlan, mealId, recipeId)
+    setWeekPlan(newPlan)
+    subtractIfConsumed(old, mealId)
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan)), prev))
+  }
+
+  function swapMeals(mealIdA: string, mealIdB: string) {
+    const a = weekPlan.find((m) => m.id === mealIdA)
+    const b = weekPlan.find((m) => m.id === mealIdB)
+    const newPlan = swapMealsBetweenDays(weekPlan, mealIdA, mealIdB)
+    setWeekPlan(newPlan)
+    subtractIfConsumed(a, mealIdA)
+    subtractIfConsumed(b, mealIdB)
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan)), prev))
+  }
+
+  function subtractIfConsumed(old: Meal | undefined, mealId: string) {
+    if (!old || !consumedMealIds.includes(mealId)) return
+    setConsumedMealIds((prev) => prev.filter((id) => id !== mealId))
+    setConsumed((c) => ({
+      kcal: Math.max(0, c.kcal - old.kcal),
+      protein: Math.max(0, c.protein - old.protein),
+      carbs: Math.max(0, c.carbs - old.carbs),
+      fat: Math.max(0, c.fat - old.fat),
+    }))
   }
 
   function toggleMealConsumed(mealId: string, kcal: number, protein: number, carbs: number, fat: number) {
@@ -219,12 +314,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  function toggleShoppingItem(id: string) {
-    setShoppingList((prev) => prev.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i)))
+  function toggleHaveAtHome(id: string) {
+    setShoppingList((prev) => prev.map((i) => (i.id === id ? { ...i, haveAtHome: !i.haveAtHome } : i)))
   }
 
-  function sendToDrive() {
-    setSentToDrive(true)
+  function placeOrder(storeId: string, mode: DeliveryMode) {
+    setChosenStoreId(storeId)
+    setChosenDeliveryMode(mode)
+    setOrderPlaced(true)
+  }
+
+  function resetOrder() {
+    setOrderPlaced(false)
+    setChosenStoreId(null)
+    setChosenDeliveryMode(null)
+    setCourseStep('menu')
   }
 
   function sendMessage(from: ChatMessage['from'], text: string) {
@@ -242,16 +346,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
         weekPlan,
         constraints,
         setConstraints,
-        regenerateWeek,
-        replaceMeal,
         weekStats,
+        menuOptions,
+        selectMenuOption,
+        buildCustomMenu,
+        courseStep,
+        setCourseStep,
+        mealAlternatives,
+        chooseMealAlternative,
+        swapMeals,
+        replaceMeal,
         consumedMealIds,
         toggleMealConsumed,
         consumed,
         shoppingList,
-        toggleShoppingItem,
-        sentToDrive,
-        sendToDrive,
+        toggleHaveAtHome,
+        storeQuotes,
+        chosenStoreId,
+        chosenDeliveryMode,
+        orderPlaced,
+        placeOrder,
+        resetOrder,
         messages,
         sendMessage,
       }}
