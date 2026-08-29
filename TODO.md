@@ -14,7 +14,7 @@ Liste vivante des limites connues de la maquette et des décisions à trancher e
 - [ ] Le filtre "catégorie" reste basé sur le créneau (midi/soir/encas), le temps de préparation et le chaud/froid, faute de vraie taxonomie de recettes (cuisine du monde, régime, etc.) — à enrichir si on veut un vrai filtre par style de plat.
 - [ ] Le prix par magasin est une estimation simplifiée (nombre d'articles restants × prix moyen × multiplicateur par enseigne), pas un vrai catalogue de prix produit par produit.
 - [ ] Le petit-déjeuner reste hors du parcours Courses (géré uniquement dans Aujourd'hui/Planning) — choix assumé, à confirmer avec l'équipe.
-- [ ] La répartition chaud/froid et le temps de préparation sont des préférences "souples" (le moteur les favorise mais peut s'en écarter s'il n'y a pas assez de recettes candidates) — jamais un filtre dur qui viderait le menu.
+- [x] ~~Le tri/préférences (temps de préparation, chaud/froid) ne changeait presque rien au menu généré~~ → **bug corrigé** : c'était de simples pénalités de score, largement écrasées par les autres critères (macros, budget). Ce sont maintenant de vrais filtres (avec repli automatique sur toutes les recettes si un filtre viderait un créneau, pour ne jamais casser la génération). Corrigé en même temps : le pool de recettes n'avait aucun plat de plus de 25 min ni aucun plat froid le soir, ce qui rendait "30 min +" et "froid le soir" silencieusement inopérants — ajout de 3 recettes soir froides et allongement de 5 recettes existantes pour couvrir la bande "30 min +".
 
 ## Planning : permutation entre jours (nouveau)
 - [x] ~~Pas de moyen d'échanger un plat avec un autre jour~~ → résolu : chaque repas peut être permuté avec le même créneau d'un autre jour, avec un avertissement si un plat très frais (tier 1) est repoussé tard dans la semaine.
@@ -24,7 +24,7 @@ Liste vivante des limites connues de la maquette et des décisions à trancher e
 - [ ] Le graphique de poids (Recharts `ResponsiveContainer`) peut apparaître tronqué une fraction de seconde au tout premier rendu avant de se stabiliser — cosmétique, sans impact réel à l'usage.
 - [ ] La passe d'optimisation locale (2-opt) recalcule les scores à partir des compteurs d'usage du remplissage initial et ne les met pas à jour entre deux échanges dans la même passe — approximation acceptable pour une démo, mais à corriger si on formalise l'algorithme.
 - [ ] Le rapprochement des allergènes personnalisés (texte libre ajouté par l'utilisateur en onboarding) ne filtre aucune recette : seuls les tags prédéfinis (`ALLERGEN_OPTIONS`) sont reconnus par le moteur.
-- [ ] Base de 28 recettes seulement : suffisant pour la démo, à étoffer nettement pour une vraie variété sur plusieurs semaines (d'autant plus important maintenant que Courses propose 3 menus différents en parallèle).
+- [ ] Base de 40 recettes (8 petit-déj, 14 midi, 13 soir, 8 encas) : correct pour la démo, à étoffer pour une vraie variété sur plusieurs semaines, surtout si plusieurs préférences restrictives sont combinées (ex. "froid le soir" + "30 min +" ne laisse qu'une poignée de recettes).
 
 ## B2B (espace praticien)
 - [ ] Un seul patient ("Camille") est réellement relié au contexte B2C ; les 6 autres patients du portefeuille sont des données statiques éditables (prescription, messages) mais non connectées à un vrai compte.

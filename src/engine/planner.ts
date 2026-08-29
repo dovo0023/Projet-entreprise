@@ -61,6 +61,27 @@ function timeBandOf(prepTime: number): TimeBand {
 
 const TIME_BAND_INDEX: Record<TimeBand, number> = { court: 0, moyen: 1, long: 2 }
 
+/** Ne garde que les recettes dans la bande de temps souhaitée ; repli sur toutes si ça viderait la liste. */
+function filterByTimeBand(candidates: RecipeTemplate[], constraints: PlannerConstraints): RecipeTemplate[] {
+  if (!constraints.timeBand) return candidates
+  const narrowed = candidates.filter((r) => timeBandOf(r.prepTime) === constraints.timeBand)
+  return narrowed.length > 0 ? narrowed : candidates
+}
+
+/** Ne garde que les recettes à la bonne température pour ce créneau ; repli sur toutes si ça viderait la liste. */
+function filterByTemperature(candidates: RecipeTemplate[], slot: Meal['slot'], constraints: PlannerConstraints): RecipeTemplate[] {
+  if (!constraints.hotColdPattern) return candidates
+  const desired = desiredTemperature(slot, constraints.hotColdPattern)
+  if (!desired) return candidates
+  const narrowed = candidates.filter((r) => r.temperature === desired)
+  return narrowed.length > 0 ? narrowed : candidates
+}
+
+/** Applique les préférences (temps, chaud/froid) comme de vrais filtres, avec repli si trop restrictif. */
+function applyPreferenceFilters(candidates: RecipeTemplate[], slot: Meal['slot'], constraints: PlannerConstraints): RecipeTemplate[] {
+  return filterByTemperature(filterByTimeBand(candidates, constraints), slot, constraints)
+}
+
 /** Filtre dur : allergènes/contre-indications du profil, jamais négociables. */
 function isEligible(recipe: RecipeTemplate, profile: UserProfile): boolean {
   const hasForbiddenAllergen = recipe.allergenTags.some((tag) => profile.allergens.includes(tag))
@@ -178,7 +199,7 @@ export function generateWeekPlan(profile: UserProfile, targets: MacroTargets, co
 
   for (let day = 1; day <= 7; day++) {
     for (const slot of slots) {
-      const candidates = byRecipeSlot[recipeSlotFor(slot)]
+      const candidates = applyPreferenceFilters(byRecipeSlot[recipeSlotFor(slot)], slot, constraints)
       if (candidates.length === 0) continue
       const target = slotTarget(targets, slot, constraints)
       const ctx: ScoreContext = {
@@ -281,7 +302,11 @@ function rankAlternatives(plan: Meal[], mealId: string, profile: UserProfile, ta
   const currentRecipeId = recipeIdFromMealId(current.id)
   const usedElsewhere = new Set(plan.filter((m) => m.id !== mealId && m.slot === current.slot).map((m) => recipeIdFromMealId(m.id)))
 
-  const eligible = RECIPE_POOL.filter((r) => r.slot === recipeSlotFor(current.slot) && isEligible(r, profile) && r.id !== currentRecipeId)
+  const eligible = applyPreferenceFilters(
+    RECIPE_POOL.filter((r) => r.slot === recipeSlotFor(current.slot) && isEligible(r, profile) && r.id !== currentRecipeId),
+    current.slot,
+    constraints,
+  )
   const usageCount = new Map<string, number>()
   usedElsewhere.forEach((id) => usageCount.set(id, 1))
 
