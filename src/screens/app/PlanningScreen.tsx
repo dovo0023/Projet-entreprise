@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeftRight, Sparkles, Timer } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, Timer } from 'lucide-react'
 import { useState } from 'react'
 import { WEEK_DAYS } from '../../data/mock'
 import { useApp } from '../../context/AppContext'
@@ -31,7 +31,7 @@ function isRiskySwapTarget(meal: Meal, targetDay: number) {
 }
 
 export default function PlanningScreen() {
-  const { weekPlan, swapMeals, weekStats } = useApp()
+  const { weekPlan, swapMeals } = useApp()
   const [expandedMealId, setExpandedMealId] = useState<string | null>(null)
 
   return (
@@ -41,32 +41,6 @@ export default function PlanningScreen() {
           <h1 className="text-xl font-extrabold text-ink">Planning de la semaine</h1>
           <p className="text-[13px] text-ink-soft">Vue calendrier de vos 7 jours</p>
         </div>
-      </div>
-
-      <div className="px-5 mt-3">
-        <Card className="!bg-ink text-cream">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles size={15} className="text-clementine-400" />
-            <p className="text-[12px] font-bold uppercase tracking-wide text-cream/70">Moteur d’optimisation</p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div>
-              <p className="text-xl font-extrabold">{weekStats.avgKcalMatch}%</p>
-              <p className="text-[10.5px] text-cream/60 mt-0.5">match calories</p>
-            </div>
-            <div>
-              <p className="text-xl font-extrabold">{weekStats.avgMacroMatch}%</p>
-              <p className="text-[10.5px] text-cream/60 mt-0.5">match macros</p>
-            </div>
-            <div>
-              <p className="text-xl font-extrabold">{weekStats.avgPrepTime} min</p>
-              <p className="text-[10.5px] text-cream/60 mt-0.5">prépa. moyenne</p>
-            </div>
-          </div>
-          <p className="text-[11px] text-cream/50 mt-3 pt-3 border-t border-cream/10">
-            Envie de changer de menu ou d’ajuster votre budget ? Ça se passe dans l’onglet Courses.
-          </p>
-        </Card>
       </div>
 
       <div className="px-5 mt-6 flex flex-col gap-6 pb-8">
