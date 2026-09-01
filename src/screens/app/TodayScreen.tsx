@@ -1,6 +1,8 @@
-import { Check, Clock, Repeat, Users, Zap } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, Check, Clock, Users, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
+import { getRecipeTemplate } from '../../engine/planner'
+import { WEEK_DAYS } from '../../data/mock'
 import { Button, Card, KcalRing, MacroBar, Pill, SectionTitle } from '../../components/ui'
 import type { Meal } from '../../types'
 
@@ -14,10 +16,25 @@ const SLOT_LABEL: Record<Meal['slot'], string> = {
 
 const SLOT_ORDER: Meal['slot'][] = ['petit-dejeuner', 'encas-matin', 'midi', 'encas-apresmidi', 'soir']
 
+function freshnessLabel(freshnessDay: number) {
+  if (freshnessDay <= 2) return { label: `DLC J${freshnessDay}`, tone: 'berry' as const }
+  if (freshnessDay <= 4) return { label: `DLC J${freshnessDay}`, tone: 'clementine' as const }
+  return { label: `DLC J${freshnessDay}`, tone: 'leaf' as const }
+}
+
+/** Avertit si un plat très frais (tier 1) est repoussé trop tard dans la semaine de livraison. */
+function isRiskySwapTarget(meal: Meal, targetDay: number) {
+  const tier = getRecipeTemplate(meal.id)?.freshnessTier ?? 2
+  if (tier === 1 && targetDay >= 4) return true
+  if (tier === 2 && targetDay >= 6) return true
+  return false
+}
+
 export default function TodayScreen() {
-  const { weekPlan, targets, consumed, consumedMealIds, toggleMealConsumed, replaceMeal, profile } = useApp()
+  const { weekPlan, targets, consumed, consumedMealIds, toggleMealConsumed, swapMeals, profile } = useApp()
   const todayMeals = weekPlan.filter((m) => m.day === 1).sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [swapMealId, setSwapMealId] = useState<string | null>(null)
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar">
@@ -43,6 +60,10 @@ export default function TodayScreen() {
           {todayMeals.map((meal) => {
             const done = consumedMealIds.includes(meal.id)
             const isOpen = expanded === meal.id
+            const isSwapOpen = swapMealId === meal.id
+            const fresh = freshnessLabel(meal.freshnessDay)
+            const otherDaysSameSlot = weekPlan.filter((m) => m.slot === meal.slot && m.id !== meal.id).sort((a, b) => a.day - b.day)
+
             return (
               <Card key={meal.id} className={done ? 'opacity-60' : ''}>
                 <button className="w-full text-left" onClick={() => setExpanded(isOpen ? null : meal.id)}>
@@ -60,6 +81,7 @@ export default function TodayScreen() {
                         <Pill tone="clementine">
                           <Zap size={11} /> {meal.kcal} kcal
                         </Pill>
+                        <Pill tone={fresh.tone}>{fresh.label}</Pill>
                         {profile.duoMode && (
                           <Pill tone="leaf">
                             <Users size={11} /> x2 portions
@@ -90,6 +112,38 @@ export default function TodayScreen() {
                   </div>
                 )}
 
+                {isSwapOpen && (
+                  <div className="mt-4 pt-4 border-t border-black/5 fade-up">
+                    <p className="text-[11px] font-bold text-ink-soft/60 uppercase mb-2">
+                      Échanger avec un autre jour ({SLOT_LABEL[meal.slot].toLowerCase()})
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      {otherDaysSameSlot.map((other) => {
+                        const otherFresh = freshnessLabel(other.freshnessDay)
+                        const risky = isRiskySwapTarget(meal, other.day) || isRiskySwapTarget(other, meal.day)
+                        return (
+                          <button
+                            key={other.id}
+                            onClick={() => {
+                              swapMeals(meal.id, other.id)
+                              setSwapMealId(null)
+                            }}
+                            className="tap flex items-center gap-2.5 bg-black/[0.03] rounded-2xl px-3 py-2.5 text-left"
+                          >
+                            <span className="text-[11px] font-bold text-ink-soft/60 w-16 shrink-0">{WEEK_DAYS[other.day - 1]}</span>
+                            <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-ink truncate">{other.name}</span>
+                            <Pill tone={otherFresh.tone}>{otherFresh.label}</Pill>
+                            {risky && <AlertTriangle size={13} className="text-clementine-500 shrink-0" />}
+                          </button>
+                        )
+                      })}
+                      {otherDaysSameSlot.length === 0 && (
+                        <p className="text-[12px] text-ink-soft/50 italic">Aucun autre repas équivalent cette semaine.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-2 mt-3">
                   <Button
                     variant={done ? 'secondary' : 'primary'}
@@ -98,8 +152,8 @@ export default function TodayScreen() {
                   >
                     {done && <Check size={15} />} {done ? 'Repas consommé' : 'Marquer consommé'}
                   </Button>
-                  <Button variant="ghost" className="!py-2.5 text-[13px]" onClick={() => replaceMeal(meal.id)}>
-                    <Repeat size={14} /> Remplacement d’urgence
+                  <Button variant="ghost" className="!py-2.5 text-[13px]" onClick={() => setSwapMealId(isSwapOpen ? null : meal.id)}>
+                    <ArrowLeftRight size={14} /> Remplacement d’urgence
                   </Button>
                 </div>
               </Card>
