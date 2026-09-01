@@ -11,9 +11,6 @@ export type Temperature = 'chaud' | 'froid'
 
 export type TimeBand = 'court' | 'moyen' | 'long'
 
-/** Température souhaitée à midi puis au soir (ex. "froid_chaud" = froid le midi, chaud le soir). */
-export type HotColdPattern = 'chaud_chaud' | 'froid_chaud' | 'chaud_froid' | 'froid_froid'
-
 export type SnackTiming = 'matin' | 'apres_midi' | 'les_deux'
 
 /** Régime alimentaire : chacun est un sous-ensemble du précédent (végétalien ⊂ végétarien ⊂ pescétarien ⊂ omnivore). */
@@ -96,10 +93,15 @@ export interface RecipeTemplate {
 
 export interface PlannerConstraints {
   timeBand: TimeBand | null // null = peu importe
-  hotColdPattern: HotColdPattern | null // null = peu importe
   snacks: { enabled: boolean; timing: SnackTiming }
   weeklyBudget: number | null
   macroFocus: 'equilibre' | 'riche_proteines'
+  /** Nombre de fois par semaine où on cuisine réellement à midi/le soir (1-7). En dessous de 7, la même
+   *  recette est reconduite sur plusieurs jours consécutifs (cuisine en lot, ex. 1 kg de poulet pour
+   *  plusieurs repas d'affilée au lieu de cuisiner chaque jour). */
+  cookingSessions: { midi: number; soir: number }
+  /** Parmi ces sessions, combien doivent être un plat chaud (le reste froid) ; null = pas de préférence. */
+  hotSessions: { midi: number | null; soir: number | null }
 }
 
 export interface ShoppingItem {

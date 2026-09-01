@@ -52,10 +52,12 @@ export const DEFAULT_PROFILE: UserProfile = {
 
 export const DEFAULT_CONSTRAINTS: PlannerConstraints = {
   timeBand: null,
-  hotColdPattern: null,
   snacks: { enabled: false, timing: 'matin' },
   weeklyBudget: null,
   macroFocus: 'equilibre',
+  // 7 = on cuisine chaque jour (comportement classique, aucun changement pour l'existant).
+  cookingSessions: { midi: 7, soir: 7 },
+  hotSessions: { midi: null, soir: null },
 }
 
 /** Par défaut on suppose tout l'équipement disponible : l'utilisateur décoche ce qu'il n'a pas. */
@@ -70,7 +72,7 @@ const DEFAULT_MESSAGES: ChatMessage[] = [
   { from: 'praticien', text: 'Super Camille, continuez ainsi. On garde le cap sur -350 kcal/j.', time: 'Lun 10:02' },
 ]
 
-const STORAGE_KEY = 'nutriflow_b2c_state_v4'
+const STORAGE_KEY = 'nutriflow_b2c_state_v5'
 
 interface PersistedState {
   onboarded: boolean

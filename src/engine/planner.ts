@@ -1,7 +1,6 @@
 import { RECIPE_POOL } from './recipes'
 import type {
   DietType,
-  HotColdPattern,
   HouseholdMember,
   KitchenEquipment,
   MacroTargets,
@@ -74,11 +73,30 @@ function slotTarget(targets: MacroTargets, slot: Meal['slot'], constraints: Plan
   }
 }
 
-/** Température souhaitée pour un créneau donné d'après la répartition chaud/froid choisie. */
-function desiredTemperature(slot: Meal['slot'], pattern: HotColdPattern): Temperature | null {
-  if (slot !== 'midi' && slot !== 'soir') return null
-  const [midi, soir] = pattern.split('_') as [Temperature, Temperature]
-  return slot === 'midi' ? midi : soir
+/**
+ * Répartit `sessions` (1-7) jours en groupes contigus aussi égaux que possible : une "session de cuisine"
+ * couvre un groupe entier avec la même recette (cuisine en lot). `sessions = 7` donne 7 groupes d'1 jour,
+ * soit exactement le comportement classique (une recette différente possible chaque jour).
+ */
+export function computeBatches(sessions: number): number[][] {
+  const n = Math.max(1, Math.min(7, Math.round(sessions)))
+  const batches: number[][] = []
+  let day = 1
+  for (let i = 0; i < n; i++) {
+    const remainingDays = 7 - day + 1
+    const remainingBatches = n - i
+    const size = Math.ceil(remainingDays / remainingBatches)
+    const batch: number[] = []
+    for (let k = 0; k < size; k++) batch.push(day++)
+    batches.push(batch)
+  }
+  return batches
+}
+
+/** Répartit `hotCount` sessions chaudes le plus régulièrement possible parmi `total` sessions. */
+function isHotBatch(index: number, total: number, hotCount: number): boolean {
+  if (total === 0) return false
+  return Math.round(((index + 1) * hotCount) / total) - Math.round((index * hotCount) / total) === 1
 }
 
 function timeBandOf(prepTime: number): TimeBand {
@@ -96,18 +114,16 @@ function filterByTimeBand(candidates: RecipeTemplate[], constraints: PlannerCons
   return narrowed.length > 0 ? narrowed : candidates
 }
 
-/** Ne garde que les recettes à la bonne température pour ce créneau ; repli sur toutes si ça viderait la liste. */
-function filterByTemperature(candidates: RecipeTemplate[], slot: Meal['slot'], constraints: PlannerConstraints): RecipeTemplate[] {
-  if (!constraints.hotColdPattern) return candidates
-  const desired = desiredTemperature(slot, constraints.hotColdPattern)
-  if (!desired) return candidates
-  const narrowed = candidates.filter((r) => r.temperature === desired)
+/** Ne garde que les recettes à la température voulue ; repli sur toutes si ça viderait la liste ou si pas de préférence. */
+function filterByTemperature(candidates: RecipeTemplate[], desiredTemp: Temperature | null): RecipeTemplate[] {
+  if (!desiredTemp) return candidates
+  const narrowed = candidates.filter((r) => r.temperature === desiredTemp)
   return narrowed.length > 0 ? narrowed : candidates
 }
 
 /** Applique les préférences (temps, chaud/froid) comme de vrais filtres, avec repli si trop restrictif. */
-function applyPreferenceFilters(candidates: RecipeTemplate[], slot: Meal['slot'], constraints: PlannerConstraints): RecipeTemplate[] {
-  return filterByTemperature(filterByTimeBand(candidates, constraints), slot, constraints)
+function applyPreferenceFilters(candidates: RecipeTemplate[], constraints: PlannerConstraints, desiredTemp: Temperature | null): RecipeTemplate[] {
+  return filterByTemperature(filterByTimeBand(candidates, constraints), desiredTemp)
 }
 
 /** Un airfryer peut remplacer un four pour les recettes qui en ont besoin (cuisson/rôtissage). */
@@ -148,6 +164,7 @@ interface ScoreContext {
   budgetSpent: number
   budgetSlotsRemaining: number
   seed: number
+  desiredTemp: Temperature | null
 }
 
 /** Petit bruit déterministe (0..1) pour départager des recettes à score presque égal, sans jamais
@@ -170,10 +187,9 @@ function scoreRecipe(recipe: RecipeTemplate, ctx: ScoreContext): number {
     score += diff * 0.5
   }
 
-  // Répartition chaud/froid choisie pour midi et soir.
-  if (ctx.constraints.hotColdPattern && recipe.temperature) {
-    const desired = desiredTemperature(ctx.slot, ctx.constraints.hotColdPattern)
-    if (desired && recipe.temperature !== desired) score += 0.6
+  // Répartition chaud/froid voulue pour cette session de cuisine.
+  if (ctx.desiredTemp && recipe.temperature && recipe.temperature !== ctx.desiredTemp) {
+    score += 0.6
   }
 
   // Contrainte budget : pénalise les recettes chères quand le budget restant par repas est serré.
@@ -208,7 +224,9 @@ function freshnessDayFor(recipe: RecipeTemplate, day: number): number {
   return Math.min(7, day + offset)
 }
 
-function toMeal(recipe: RecipeTemplate, day: number, slot: Meal['slot']): Meal {
+/** `cookedDay` (par défaut = `day`) sert au calcul de fraîcheur : pour un repas en lot, c'est le premier
+ *  jour du lot (cuisiné une fois), pas le jour où il est effectivement mangé. */
+function toMeal(recipe: RecipeTemplate, day: number, slot: Meal['slot'], cookedDay: number = day): Meal {
   return {
     id: `${recipe.id}-d${day}-${SLOT_CODE[slot]}`,
     day,
@@ -219,7 +237,7 @@ function toMeal(recipe: RecipeTemplate, day: number, slot: Meal['slot']): Meal {
     carbs: recipe.carbs,
     fat: recipe.fat,
     prepTime: recipe.prepTime,
-    freshnessDay: freshnessDayFor(recipe, day),
+    freshnessDay: freshnessDayFor(recipe, cookedDay),
     ingredients: recipe.ingredients,
     steps: recipe.steps,
     image: recipe.image,
@@ -230,6 +248,26 @@ interface Assignment {
   day: number
   slot: Meal['slot']
   recipe: RecipeTemplate
+  cookedDay: number
+}
+
+interface BatchInfo {
+  dayToBatchIndex: Map<number, number>
+  batchAnchorDay: Map<number, number>
+  desiredTempByBatch: (Temperature | null)[]
+}
+
+/** Précalcule le découpage en lots de cuisine pour midi/soir (7 lots d'1 jour = comportement classique). */
+function buildBatchInfo(sessions: number, hotCount: number | null): BatchInfo {
+  const batches = computeBatches(sessions)
+  const dayToBatchIndex = new Map<number, number>()
+  const batchAnchorDay = new Map<number, number>()
+  batches.forEach((days, idx) => {
+    batchAnchorDay.set(idx, days[0])
+    days.forEach((d) => dayToBatchIndex.set(d, idx))
+  })
+  const desiredTempByBatch = batches.map((_, idx) => (hotCount == null ? null : isHotBatch(idx, batches.length, hotCount) ? ('chaud' as const) : ('froid' as const)))
+  return { dayToBatchIndex, batchAnchorDay, desiredTempByBatch }
 }
 
 /**
@@ -260,9 +298,41 @@ export function generateWeekPlan(
   const totalSlots = 7 * slots.length
   let slotsFilled = 0
 
+  // Découpage en lots de cuisine pour midi/soir (une recette reconduite sur tout le lot).
+  const batchInfo: Partial<Record<'midi' | 'soir', BatchInfo>> = {}
+  for (const slot of ['midi', 'soir'] as const) {
+    if (slots.includes(slot)) batchInfo[slot] = buildBatchInfo(constraints.cookingSessions[slot], constraints.hotSessions[slot])
+  }
+
+  function desiredTempFor(slot: Meal['slot'], day: number): Temperature | null {
+    if (slot !== 'midi' && slot !== 'soir') return null
+    const info = batchInfo[slot]
+    if (!info) return null
+    return info.desiredTempByBatch[info.dayToBatchIndex.get(day)!]
+  }
+
+  const lastRecipeForSlot = new Map<'midi' | 'soir', RecipeTemplate>()
+
   for (let day = 1; day <= 7; day++) {
     for (const slot of slots) {
-      const candidates = applyPreferenceFilters(byRecipeSlot[recipeSlotFor(slot)], slot, constraints)
+      const info = slot === 'midi' || slot === 'soir' ? batchInfo[slot] : undefined
+      const batchIdx = info?.dayToBatchIndex.get(day)
+      const isBatchContinuation = info != null && batchIdx != null && info.batchAnchorDay.get(batchIdx) !== day
+
+      if (isBatchContinuation) {
+        // Jour de reconduction d'un lot déjà cuisiné : on réutilise la même recette, pas de nouveau choix.
+        const recipe = lastRecipeForSlot.get(slot as 'midi' | 'soir')
+        if (!recipe) continue
+        const cookedDay = info!.batchAnchorDay.get(batchIdx!)!
+        assignments.push({ day, slot, recipe, cookedDay })
+        usageCount.set(recipe.id, (usageCount.get(recipe.id) ?? 0) + 1)
+        budgetSpent += recipe.cost
+        slotsFilled++
+        continue
+      }
+
+      const desiredTemp = desiredTempFor(slot, day)
+      const candidates = applyPreferenceFilters(byRecipeSlot[recipeSlotFor(slot)], constraints, desiredTemp)
       if (candidates.length === 0) continue
       const target = slotTarget(targets, slot, constraints)
       const ctx: ScoreContext = {
@@ -275,6 +345,7 @@ export function generateWeekPlan(
         budgetSpent,
         budgetSlotsRemaining: totalSlots - slotsFilled,
         seed,
+        desiredTemp,
       }
       let best = candidates[0]
       let bestScore = Infinity
@@ -285,7 +356,8 @@ export function generateWeekPlan(
           best = candidate
         }
       }
-      assignments.push({ day, slot, recipe: best })
+      if (slot === 'midi' || slot === 'soir') lastRecipeForSlot.set(slot, best)
+      assignments.push({ day, slot, recipe: best, cookedDay: day })
       usageCount.set(best.id, (usageCount.get(best.id) ?? 0) + 1)
       budgetSpent += best.cost
       slotsFilled++
@@ -293,9 +365,11 @@ export function generateWeekPlan(
   }
 
   // Passe d'amélioration locale (recherche 2-opt) : on tente d'échanger deux repas du même créneau
-  // entre deux jours si cela réduit le score combiné, sans jamais casser une contrainte de fraîcheur logique.
+  // entre deux jours si cela réduit le score combiné. Exclue les créneaux en cuisine par lots (sessions < 7)
+  // pour ne jamais casser la cohérence d'un lot (même recette sur tous ses jours).
+  const twoOptSlots = slots.filter((slot) => (slot !== 'midi' && slot !== 'soir') || constraints.cookingSessions[slot] === 7)
   for (let pass = 0; pass < 2; pass++) {
-    for (const slot of slots) {
+    for (const slot of twoOptSlots) {
       const idxs = assignments.map((a, i) => (a.slot === slot ? i : -1)).filter((i) => i >= 0)
       for (let a = 0; a < idxs.length; a++) {
         for (let b = a + 1; b < idxs.length; b++) {
@@ -306,11 +380,11 @@ export function generateWeekPlan(
           if (ai.recipe.id === aj.recipe.id) continue
 
           const scoreBefore =
-            scoreRecipe(ai.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id), seed)) +
-            scoreRecipe(aj.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id), seed))
+            scoreRecipe(ai.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id), seed, desiredTempFor(slot, ai.day))) +
+            scoreRecipe(aj.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id), seed, desiredTempFor(slot, aj.day)))
           const scoreAfter =
-            scoreRecipe(aj.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id), seed)) +
-            scoreRecipe(ai.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id), seed))
+            scoreRecipe(aj.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id), seed, desiredTempFor(slot, ai.day))) +
+            scoreRecipe(ai.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id), seed, desiredTempFor(slot, aj.day)))
 
           if (scoreAfter < scoreBefore - 0.05) {
             assignments[i] = { ...ai, recipe: aj.recipe }
@@ -321,7 +395,7 @@ export function generateWeekPlan(
     }
   }
 
-  return assignments.map((a) => toMeal(a.recipe, a.day, a.slot))
+  return assignments.map((a) => toMeal(a.recipe, a.day, a.slot, a.cookedDay))
 }
 
 function undoUsage(usageCount: Map<string, number>, recipeId: string): Map<string, number> {
@@ -337,6 +411,7 @@ function buildCtx(
   constraints: PlannerConstraints,
   usageCount: Map<string, number>,
   seed: number,
+  desiredTemp: Temperature | null,
 ): ScoreContext {
   return {
     slot,
@@ -348,6 +423,7 @@ function buildCtx(
     budgetSpent: 0,
     budgetSlotsRemaining: 21,
     seed,
+    desiredTemp,
   }
 }
 
@@ -375,13 +451,15 @@ function rankAlternatives(
 
   const currentRecipeId = recipeIdFromMealId(current.id)
   const usedElsewhere = new Set(plan.filter((m) => m.id !== mealId && m.slot === current.slot).map((m) => recipeIdFromMealId(m.id)))
+  // On garde le même caractère chaud/froid que le repas remplacé plutôt que d'en changer par surprise.
+  const desiredTemp = getRecipeTemplate(current.id)?.temperature ?? null
 
   const eligible = applyPreferenceFilters(
     RECIPE_POOL.filter(
       (r) => r.slot === recipeSlotFor(current.slot) && isEligible(r, allergens, requiredDiet, ownedEquipment) && r.id !== currentRecipeId,
     ),
-    current.slot,
     constraints,
+    desiredTemp,
   )
   const usageCount = new Map<string, number>()
   usedElsewhere.forEach((id) => usageCount.set(id, 1))
@@ -396,6 +474,7 @@ function rankAlternatives(
     budgetSpent: 0,
     budgetSlotsRemaining: 21,
     seed: 0,
+    desiredTemp,
   }
 
   return [...eligible].sort((a, b) => scoreRecipe(a, ctx) - scoreRecipe(b, ctx))
