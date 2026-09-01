@@ -47,7 +47,6 @@ export default function Onboarding() {
     activityLevel,
     goal,
     allergens,
-    duoMode: false,
     plan: 'Starter',
   }
 

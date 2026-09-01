@@ -5,13 +5,13 @@ import { Card } from '../../components/ui'
 
 const ROWS = [
   { icon: KeyRound, label: 'Mot de passe & sécurité' },
-  { icon: Users, label: 'Mode Duo / Famille' },
+  { icon: Users, label: 'Mon foyer', to: '/app/household' },
   { icon: FileText, label: 'Historique médical & prescriptions' },
 ]
 
 export default function ProfileScreen() {
   const navigate = useNavigate()
-  const { profile, setProfile } = useApp()
+  const { profile, householdMembers } = useApp()
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -34,23 +34,22 @@ export default function ProfileScreen() {
         </Card>
 
         <div className="mt-5 bg-white rounded-3xl border border-black/5 overflow-hidden">
-          {ROWS.map(({ icon: Icon, label }, i) => (
+          {ROWS.map(({ icon: Icon, label, to }, i) => (
             <button
               key={label}
-              onClick={() => label.includes('Duo') && setProfile({ duoMode: !profile.duoMode })}
+              onClick={() => to && navigate(to)}
               className={`tap w-full flex items-center gap-3 px-4 py-4 ${i !== ROWS.length - 1 ? 'border-b border-black/5' : ''}`}
             >
               <div className="w-9 h-9 rounded-xl bg-leaf-50 flex items-center justify-center shrink-0">
                 <Icon size={16} className="text-leaf-600" />
               </div>
               <span className="flex-1 text-left text-[14px] font-semibold text-ink">{label}</span>
-              {label.includes('Duo') ? (
-                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${profile.duoMode ? 'bg-leaf-100 text-leaf-700' : 'bg-black/5 text-ink-soft/50'}`}>
-                  {profile.duoMode ? 'Activé' : 'Désactivé'}
+              {label === 'Mon foyer' && householdMembers.length > 0 && (
+                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-leaf-100 text-leaf-700">
+                  {householdMembers.length + 1} pers.
                 </span>
-              ) : (
-                <ChevronRight size={16} className="text-ink-soft/40" />
               )}
+              <ChevronRight size={16} className="text-ink-soft/40" />
             </button>
           ))}
         </div>

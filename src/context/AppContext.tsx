@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ChatMessage, DeliveryMode, MacroTargets, Meal, PlannerConstraints, RecipeTemplate, ShoppingItem, UserProfile } from '../types'
+import type { ChatMessage, DeliveryMode, Goal, HouseholdMember, MacroTargets, Meal, PlannerConstraints, RecipeTemplate, ShoppingItem, UserProfile } from '../types'
 import {
   applyMealChoice,
   computeWeekStats,
@@ -23,7 +23,6 @@ export const DEFAULT_PROFILE: UserProfile = {
   activityLevel: 'modere',
   goal: 'seche',
   allergens: [],
-  duoMode: false,
   plan: 'Starter',
 }
 
@@ -44,11 +43,12 @@ const DEFAULT_MESSAGES: ChatMessage[] = [
   { from: 'praticien', text: 'Super Camille, continuez ainsi. On garde le cap sur -350 kcal/j.', time: 'Lun 10:02' },
 ]
 
-const STORAGE_KEY = 'nutriflow_b2c_state_v2'
+const STORAGE_KEY = 'nutriflow_b2c_state_v3'
 
 interface PersistedState {
   onboarded: boolean
   profile: UserProfile
+  householdMembers: HouseholdMember[]
   constraints: PlannerConstraints
   weekPlan: Meal[]
   consumedMealIds: string[]
@@ -110,6 +110,11 @@ interface AppState {
   completeOnboarding: () => void
   targets: MacroTargets
 
+  householdMembers: HouseholdMember[]
+  addHouseholdMember: (name: string, goal: Goal, allergens: string[]) => void
+  updateHouseholdMember: (id: string, patch: Partial<Omit<HouseholdMember, 'id'>>) => void
+  removeHouseholdMember: (id: string) => void
+
   weekPlan: Meal[]
   constraints: PlannerConstraints
   setConstraints: (c: Partial<PlannerConstraints>) => void
@@ -149,6 +154,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [onboarded, setOnboarded] = useState(persisted?.onboarded ?? false)
   const [profile, setProfileState] = useState<UserProfile>(persisted?.profile ?? DEFAULT_PROFILE)
+  const [householdMembers, setHouseholdMembers] = useState<HouseholdMember[]>(persisted?.householdMembers ?? [])
   const [constraints, setConstraintsState] = useState<PlannerConstraints>(persisted?.constraints ?? DEFAULT_CONSTRAINTS)
 
   const targets = useMemo(() => computeTargets(profile), [profile])
@@ -196,6 +202,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const payload: PersistedState = {
         onboarded,
         profile,
+        householdMembers,
         constraints,
         weekPlan,
         consumedMealIds,
@@ -211,10 +218,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch {
       // Stockage indisponible (navigation privée, quota) : la session continue simplement en mémoire.
     }
-  }, [onboarded, profile, constraints, weekPlan, consumedMealIds, consumed, shoppingList, messages, courseStep, chosenStoreId, chosenDeliveryMode, orderPlaced])
+  }, [
+    onboarded,
+    profile,
+    householdMembers,
+    constraints,
+    weekPlan,
+    consumedMealIds,
+    consumed,
+    shoppingList,
+    messages,
+    courseStep,
+    chosenStoreId,
+    chosenDeliveryMode,
+    orderPlaced,
+  ])
 
   function setProfile(p: Partial<UserProfile>) {
     setProfileState((prev) => ({ ...prev, ...p }))
+  }
+
+  function addHouseholdMember(name: string, goal: Goal, allergens: string[]) {
+    const member: HouseholdMember = { id: `hm-${Date.now()}-${Math.round(Math.random() * 9999)}`, name, goal, allergens }
+    setHouseholdMembers((prev) => [...prev, member])
+  }
+
+  function updateHouseholdMember(id: string, patch: Partial<Omit<HouseholdMember, 'id'>>) {
+    setHouseholdMembers((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)))
+  }
+
+  function removeHouseholdMember(id: string) {
+    setHouseholdMembers((prev) => prev.filter((m) => m.id !== id))
   }
 
   function applyNewPlan(plan: Meal[]) {
@@ -333,6 +367,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setProfile,
         completeOnboarding,
         targets,
+        householdMembers,
+        addHouseholdMember,
+        updateHouseholdMember,
+        removeHouseholdMember,
         weekPlan,
         constraints,
         setConstraints,

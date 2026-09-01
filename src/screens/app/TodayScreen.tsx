@@ -31,7 +31,7 @@ function isRiskySwapTarget(meal: Meal, targetDay: number) {
 }
 
 export default function TodayScreen() {
-  const { weekPlan, targets, consumed, consumedMealIds, toggleMealConsumed, swapMeals, profile } = useApp()
+  const { weekPlan, targets, consumed, consumedMealIds, toggleMealConsumed, swapMeals, profile, householdMembers } = useApp()
   const todayMeals = weekPlan.filter((m) => m.day === 1).sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
   const [expanded, setExpanded] = useState<string | null>(null)
   const [swapMealId, setSwapMealId] = useState<string | null>(null)
@@ -82,9 +82,9 @@ export default function TodayScreen() {
                           <Zap size={11} /> {meal.kcal} kcal
                         </Pill>
                         <Pill tone={fresh.tone}>{fresh.label}</Pill>
-                        {profile.duoMode && (
+                        {householdMembers.length > 0 && (
                           <Pill tone="leaf">
-                            <Users size={11} /> x2 portions
+                            <Users size={11} /> x{householdMembers.length + 1} portions
                           </Pill>
                         )}
                       </div>

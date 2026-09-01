@@ -26,8 +26,15 @@ export interface UserProfile {
   activityLevel: ActivityLevel
   goal: Goal
   allergens: string[]
-  duoMode: boolean
   plan: 'Gratuit' | 'Starter' | 'Pro' | 'Ultra'
+}
+
+/** Une autre personne du foyer partageant les repas, avec son propre objectif et ses allergies. */
+export interface HouseholdMember {
+  id: string
+  name: string
+  goal: Goal
+  allergens: string[]
 }
 
 export interface MacroTargets {
