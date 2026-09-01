@@ -1,5 +1,18 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ChatMessage, DeliveryMode, DietType, Goal, HouseholdMember, MacroTargets, Meal, PlannerConstraints, RecipeTemplate, ShoppingItem, UserProfile } from '../types'
+import type {
+  ChatMessage,
+  DeliveryMode,
+  DietType,
+  Goal,
+  HouseholdMember,
+  MacroTargets,
+  Meal,
+  PersonalRecord,
+  PlannerConstraints,
+  RecipeTemplate,
+  ShoppingItem,
+  UserProfile,
+} from '../types'
 import {
   aggregateAllergens,
   applyMealChoice,
@@ -14,6 +27,13 @@ import {
 } from '../engine/planner'
 import { consolidateIngredients } from '../engine/shoppingConsolidator'
 import { quoteStores, type StoreQuote } from '../engine/storeQuote'
+import { ADHERENCE_HISTORY, generatePersonalHistory, WEIGHT_HISTORY } from '../data/mock'
+
+/** Clé du foyer désignant le profil principal dans `personalRecords` (les autres membres utilisent leur `id`). */
+export const SELF_RECORD_ID = 'self'
+
+/** La maquette se déroule toujours "aujourd'hui" lundi 1er septembre : une pesée du jour porte cette date. */
+const TODAY_LABEL = '01/09'
 
 export const DEFAULT_PROFILE: UserProfile = {
   firstName: 'Camille',
@@ -46,12 +66,13 @@ const DEFAULT_MESSAGES: ChatMessage[] = [
   { from: 'praticien', text: 'Super Camille, continuez ainsi. On garde le cap sur -350 kcal/j.', time: 'Lun 10:02' },
 ]
 
-const STORAGE_KEY = 'nutriflow_b2c_state_v3'
+const STORAGE_KEY = 'nutriflow_b2c_state_v4'
 
 interface PersistedState {
   onboarded: boolean
   profile: UserProfile
   householdMembers: HouseholdMember[]
+  personalRecords: Record<string, PersonalRecord>
   constraints: PlannerConstraints
   weekPlan: Meal[]
   consumedMealIds: string[]
@@ -118,6 +139,9 @@ interface AppState {
   updateHouseholdMember: (id: string, patch: Partial<Omit<HouseholdMember, 'id'>>) => void
   removeHouseholdMember: (id: string) => void
 
+  personalRecords: Record<string, PersonalRecord>
+  logWeight: (personId: string, weight: number) => void
+
   weekPlan: Meal[]
   constraints: PlannerConstraints
   setConstraints: (c: Partial<PlannerConstraints>) => void
@@ -158,6 +182,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboarded, setOnboarded] = useState(persisted?.onboarded ?? false)
   const [profile, setProfileState] = useState<UserProfile>(persisted?.profile ?? DEFAULT_PROFILE)
   const [householdMembers, setHouseholdMembers] = useState<HouseholdMember[]>(persisted?.householdMembers ?? [])
+  const [personalRecords, setPersonalRecords] = useState<Record<string, PersonalRecord>>(
+    persisted?.personalRecords ?? { [SELF_RECORD_ID]: { weightHistory: WEIGHT_HISTORY, adherenceHistory: ADHERENCE_HISTORY } },
+  )
   const [constraints, setConstraintsState] = useState<PlannerConstraints>(persisted?.constraints ?? DEFAULT_CONSTRAINTS)
 
   const targets = useMemo(() => computeTargets(profile), [profile])
@@ -214,6 +241,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         onboarded,
         profile,
         householdMembers,
+        personalRecords,
         constraints,
         weekPlan,
         consumedMealIds,
@@ -233,6 +261,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboarded,
     profile,
     householdMembers,
+    personalRecords,
     constraints,
     weekPlan,
     consumedMealIds,
@@ -260,6 +289,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const member: HouseholdMember = { id: `hm-${Date.now()}-${Math.round(Math.random() * 9999)}`, name, goal, dietType, allergens }
     const next = [...householdMembers, member]
     setHouseholdMembers(next)
+    setPersonalRecords((prev) => ({ ...prev, [member.id]: generatePersonalHistory(member.id, member.goal) }))
     regenerateForHousehold(next)
   }
 
@@ -272,7 +302,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   function removeHouseholdMember(id: string) {
     const next = householdMembers.filter((m) => m.id !== id)
     setHouseholdMembers(next)
+    setPersonalRecords((prev) => {
+      const { [id]: _removed, ...rest } = prev
+      return rest
+    })
     regenerateForHousehold(next)
+  }
+
+  /** Ajoute (ou met à jour si déjà loggé aujourd'hui) la pesée d'une personne du foyer dans son propre historique. */
+  function logWeight(personId: string, weight: number) {
+    setPersonalRecords((prev) => {
+      const record = prev[personId]
+      if (!record) return prev
+      const last = record.weightHistory[record.weightHistory.length - 1]
+      const weightHistory =
+        last?.date === TODAY_LABEL
+          ? record.weightHistory.map((w, i) => (i === record.weightHistory.length - 1 ? { ...w, weight } : w))
+          : [...record.weightHistory, { date: TODAY_LABEL, weight }]
+      return { ...prev, [personId]: { ...record, weightHistory } }
+    })
   }
 
   function applyNewPlan(plan: Meal[]) {
@@ -395,6 +443,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addHouseholdMember,
         updateHouseholdMember,
         removeHouseholdMember,
+        personalRecords,
+        logWeight,
         weekPlan,
         constraints,
         setConstraints,

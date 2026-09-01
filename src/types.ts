@@ -127,6 +127,12 @@ export interface AdherenceEntry {
   percent: number
 }
 
+/** Historique de suivi (poids, observance) d'une personne du foyer, suivi individuellement. */
+export interface PersonalRecord {
+  weightHistory: WeightEntry[]
+  adherenceHistory: AdherenceEntry[]
+}
+
 export interface ChatMessage {
   from: 'patient' | 'praticien'
   text: string

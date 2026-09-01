@@ -30,6 +30,11 @@ Liste vivante des limites connues de la maquette et des décisions à trancher e
 - [x] ~~"Remplacement d'urgence" dans Aujourd'hui remplaçait par une recette aléatoire du pool~~ → aligné sur Planning : propose maintenant la liste des repas équivalents des autres jours avec leur DLC et le même avertissement fraîcheur, au lieu d'un remplacement automatique. Le remplacement automatique par une nouvelle recette (hors permutation) reste disponible uniquement dans Courses via "Régénérer un repas".
 - [ ] L'avertissement de fraîcheur est un seuil simple (tier + jour cible), pas un vrai calcul de DLC produit par produit.
 
+## Progression individuelle par personne du foyer (nouveau)
+- [x] ~~Un seul suivi de poids/observance existait, partagé pour tout le foyer~~ → résolu : l'onglet Progression propose un sélecteur de personne (Vous + chaque membre du foyer, visible dès qu'il y a au moins un membre) et affiche la trajectoire de poids, l'observance et la pesée hebdomadaire propres à la personne choisie — deux personnes en couple (ex. Camille et Jason) peuvent ainsi suivre chacune leur propre courbe.
+- [ ] L'historique initial d'un nouveau membre du foyer est généré automatiquement (poids de départ aléatoire mais stable, tendance cohérente avec son objectif) faute d'avoir collecté son poids/taille réels à la création — un vrai produit demanderait ces informations au moment de l'ajouter au foyer.
+- [ ] L'espace praticien (chat, code de partage) reste unique et rattaché au compte principal quelle que soit la personne sélectionnée dans le sélecteur : les autres membres du foyer n'ont pas leur propre suivi praticien dans cette maquette.
+
 ## Moteur IA / Planning (B2C)
 - [ ] Le graphique de poids (Recharts `ResponsiveContainer`) peut apparaître tronqué une fraction de seconde au tout premier rendu avant de se stabiliser — cosmétique, sans impact réel à l'usage.
 - [ ] La passe d'optimisation locale (2-opt) recalcule les scores à partir des compteurs d'usage du remplissage initial et ne les met pas à jour entre deux échanges dans la même passe — approximation acceptable pour une démo, mais à corriger si on formalise l'algorithme.
@@ -47,6 +52,6 @@ Liste vivante des limites connues de la maquette et des décisions à trancher e
 - [ ] Le compteur de messages non lus (badge rouge) affiche le nombre total de messages, pas le nombre réellement "non lus" — acceptable en démo, à corriger avec un vrai statut lu/non lu.
 
 ## Transverse
-- [x] Persistance locale : l'état B2C (profil, planning, courses, messages) et B2B (portefeuille, prescriptions, messages) est sauvegardé dans le `localStorage` du navigateur et restauré au rechargement. Reste vrai : rien n'est partagé entre deux navigateurs/appareils différents (voir note démo ci-dessus). Le format de stockage a changé avec l'ajout du foyer (clé `nutriflow_b2c_state_v3`) : les anciennes données de démo en `v1`/`v2` sont ignorées, pas migrées.
+- [x] Persistance locale : l'état B2C (profil, planning, courses, messages) et B2B (portefeuille, prescriptions, messages) est sauvegardé dans le `localStorage` du navigateur et restauré au rechargement. Reste vrai : rien n'est partagé entre deux navigateurs/appareils différents (voir note démo ci-dessus). Le format de stockage a changé avec le suivi individuel par personne du foyer (clé `nutriflow_b2c_state_v4`) : les anciennes données de démo en `v1`/`v2`/`v3` sont ignorées, pas migrées.
 - [ ] Pas de backend/API réelle : authentification, connexion tierce (Google/Apple), paiement d'abonnement et intégration Drive/click & collect sont uniquement des maquettes visuelles sans logique serveur.
 - [ ] Pas de tests automatisés (unitaires ou end-to-end).

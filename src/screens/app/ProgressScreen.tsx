@@ -1,20 +1,41 @@
-import { Check, Copy, MessageCircle, Scale, Send, TrendingDown } from 'lucide-react'
+import { Check, Copy, MessageCircle, Scale, Send, TrendingDown, TrendingUp } from 'lucide-react'
 import { useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ADHERENCE_HISTORY, WEIGHT_HISTORY } from '../../data/mock'
-import { PATIENT_SHARE_CODE, useApp } from '../../context/AppContext'
+import { PATIENT_SHARE_CODE, SELF_RECORD_ID, useApp } from '../../context/AppContext'
 import { Button, Card, SectionTitle } from '../../components/ui'
 
 export default function ProgressScreen() {
-  const { messages, sendMessage } = useApp()
+  const { profile, householdMembers, personalRecords, logWeight, messages, sendMessage } = useApp()
+  const people = [{ id: SELF_RECORD_ID, name: profile.firstName }, ...householdMembers.map((m) => ({ id: m.id, name: m.name }))]
+  const [selectedId, setSelectedId] = useState(SELF_RECORD_ID)
+  const selectedPerson = people.find((p) => p.id === selectedId) ?? people[0]
+  const record = personalRecords[selectedPerson.id] ?? { weightHistory: [], adherenceHistory: [] }
+  const { weightHistory, adherenceHistory } = record
+
   const [weightInput, setWeightInput] = useState('')
-  const [logged, setLogged] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [messageText, setMessageText] = useState('')
   const [copied, setCopied] = useState(false)
-  const lastWeight = WEIGHT_HISTORY[WEIGHT_HISTORY.length - 1].weight
-  const firstWeight = WEIGHT_HISTORY[0].weight
-  const delta = (lastWeight - firstWeight).toFixed(1)
+  const lastWeight = weightHistory[weightHistory.length - 1]?.weight
+  const firstWeight = weightHistory[0]?.weight
+  const delta = lastWeight != null && firstWeight != null ? (lastWeight - firstWeight).toFixed(1) : '0.0'
+  const loggedToday = weightHistory[weightHistory.length - 1]?.date === '01/09'
+  const subtitle =
+    selectedPerson.id === SELF_RECORD_ID
+      ? 'Votre pesée hebdomadaire recalibre votre plan.'
+      : `La pesée hebdomadaire de ${selectedPerson.name} recalibre son plan.`
+
+  function selectPerson(id: string) {
+    setSelectedId(id)
+    setWeightInput('')
+  }
+
+  function handleLogWeight() {
+    const value = parseFloat(weightInput.replace(',', '.'))
+    if (!Number.isFinite(value)) return
+    logWeight(selectedPerson.id, value)
+    setWeightInput('')
+  }
 
   async function copyCode() {
     try {
@@ -36,8 +57,24 @@ export default function ProgressScreen() {
     <div className="flex-1 overflow-y-auto no-scrollbar">
       <div className="px-5 pt-5 pb-2">
         <h1 className="text-xl font-extrabold text-ink">Progression & santé</h1>
-        <p className="text-[13px] text-ink-soft">Votre pesée hebdomadaire recalibre le plan.</p>
+        <p className="text-[13px] text-ink-soft">{subtitle}</p>
       </div>
+
+      {people.length > 1 && (
+        <div className="px-5 mt-3 flex gap-2 overflow-x-auto no-scrollbar">
+          {people.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => selectPerson(p.id)}
+              className={`tap shrink-0 px-4 py-2 rounded-full text-[13px] font-bold border ${
+                selectedPerson.id === p.id ? 'bg-leaf-500 text-white border-leaf-500' : 'bg-white border-black/10 text-ink-soft'
+              }`}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="px-5 mt-3">
         <Card>
@@ -45,7 +82,7 @@ export default function ProgressScreen() {
             <Scale size={16} className="text-leaf-600" />
             <p className="text-[13px] font-bold text-ink">Pesée du dimanche</p>
           </div>
-          {logged ? (
+          {loggedToday ? (
             <div className="flex items-center gap-2 bg-leaf-50 text-leaf-700 rounded-2xl py-3 px-4 text-[13px] font-semibold">
               Poids enregistré · portions de la semaine prochaine ajustées automatiquement (Boucle adaptative Ultra).
             </div>
@@ -56,10 +93,10 @@ export default function ProgressScreen() {
                 step="0.1"
                 value={weightInput}
                 onChange={(e) => setWeightInput(e.target.value)}
-                placeholder={`${lastWeight}`}
+                placeholder={lastWeight != null ? `${lastWeight}` : '—'}
                 className="flex-1 rounded-2xl border border-black/10 px-4 py-3 text-[15px] outline-none focus:border-leaf-500"
               />
-              <Button onClick={() => weightInput && setLogged(true)} className="!px-5">
+              <Button onClick={handleLogWeight} className="!px-5">
                 Valider
               </Button>
             </div>
@@ -71,13 +108,17 @@ export default function ProgressScreen() {
         <SectionTitle>Trajectoire du poids</SectionTitle>
         <Card>
           <div className="flex items-center gap-2 mb-1">
-            <TrendingDown size={16} className="text-leaf-600" />
+            {Number(delta) > 0 ? (
+              <TrendingUp size={16} className="text-clementine-500" />
+            ) : (
+              <TrendingDown size={16} className="text-leaf-600" />
+            )}
             <span className="text-[20px] font-extrabold text-ink">{delta} kg</span>
             <span className="text-[12px] text-ink-soft/60">depuis le 1er juillet</span>
           </div>
           <div className="h-36 -ml-4 mt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={WEIGHT_HISTORY} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={weightHistory} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#2f9d5f" stopOpacity={0.35} />
@@ -102,7 +143,7 @@ export default function ProgressScreen() {
         <Card>
           <div className="h-32 -ml-4">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={ADHERENCE_HISTORY} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <BarChart data={adherenceHistory} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#4b5563' }} axisLine={false} tickLine={false} />
                 <YAxis hide domain={[0, 100]} />
                 <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #eee', fontSize: 12 }} formatter={(v) => [`${v}%`, 'Observance']} />
