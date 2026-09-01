@@ -16,6 +16,9 @@ export type HotColdPattern = 'chaud_chaud' | 'froid_chaud' | 'chaud_froid' | 'fr
 
 export type SnackTiming = 'matin' | 'apres_midi' | 'les_deux'
 
+/** Régime alimentaire : chacun est un sous-ensemble du précédent (végétalien ⊂ végétarien ⊂ pescétarien ⊂ omnivore). */
+export type DietType = 'omnivore' | 'pescetarien' | 'vegetarien' | 'vegetalien'
+
 export interface UserProfile {
   firstName: string
   email: string
@@ -25,15 +28,17 @@ export interface UserProfile {
   weight: number // kg
   activityLevel: ActivityLevel
   goal: Goal
+  dietType: DietType
   allergens: string[]
   plan: 'Gratuit' | 'Starter' | 'Pro' | 'Ultra'
 }
 
-/** Une autre personne du foyer partageant les repas, avec son propre objectif et ses allergies. */
+/** Une autre personne du foyer partageant les repas, avec son propre objectif, régime et allergies. */
 export interface HouseholdMember {
   id: string
   name: string
   goal: Goal
+  dietType: DietType
   allergens: string[]
 }
 
@@ -77,6 +82,7 @@ export interface RecipeTemplate {
   cost: number // euros per portion
   freshnessTier: number // 1 (ultra-frais, à consommer tôt) .. 3 (longue conservation)
   allergenTags: string[] // subset of ALLERGEN_OPTIONS
+  dietTags: DietType[] // régimes que cette recette satisfait (ex. un plat végétalien satisfait les 4)
   highGI: boolean // pertinent pour le filtre "contrôle glycémique"
   temperature?: Temperature // midi/soir uniquement : chaud ou froid
   ingredients: Ingredient[]

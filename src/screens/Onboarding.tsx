@@ -46,6 +46,7 @@ export default function Onboarding() {
     weight,
     activityLevel,
     goal,
+    dietType: 'omnivore',
     allergens,
     plan: 'Starter',
   }

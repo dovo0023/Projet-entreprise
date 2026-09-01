@@ -1,7 +1,22 @@
 import { RECIPE_POOL } from './recipes'
-import type { HotColdPattern, MacroTargets, Meal, PlannerConstraints, RecipeSlot, RecipeTemplate, Temperature, TimeBand, UserProfile } from '../types'
+import type { DietType, HotColdPattern, HouseholdMember, MacroTargets, Meal, PlannerConstraints, RecipeSlot, RecipeTemplate, Temperature, TimeBand, UserProfile } from '../types'
 
 const DIABETES_TAG = 'Diabète (contrôle glycémique)'
+
+const DIET_RANK: Record<DietType, number> = { omnivore: 0, pescetarien: 1, vegetarien: 2, vegetalien: 3 }
+
+/** Le régime le plus restrictif parmi le profil et les membres du foyer : un menu partagé doit convenir à tout le monde. */
+export function mostRestrictiveDiet(profile: UserProfile, householdMembers: HouseholdMember[]): DietType {
+  return [profile.dietType, ...householdMembers.map((m) => m.dietType)].reduce(
+    (strictest, d) => (DIET_RANK[d] > DIET_RANK[strictest] ? d : strictest),
+    'omnivore' as DietType,
+  )
+}
+
+/** Allergènes cumulés du profil et de tous les membres du foyer : un repas partagé doit convenir à tout le monde. */
+export function aggregateAllergens(profile: UserProfile, householdMembers: HouseholdMember[]): string[] {
+  return Array.from(new Set([...profile.allergens, ...householdMembers.flatMap((m) => m.allergens)]))
+}
 
 const SLOT_CODE: Record<Meal['slot'], string> = {
   'petit-dejeuner': 'pdj',
@@ -82,11 +97,12 @@ function applyPreferenceFilters(candidates: RecipeTemplate[], slot: Meal['slot']
   return filterByTemperature(filterByTimeBand(candidates, constraints), slot, constraints)
 }
 
-/** Filtre dur : allergènes/contre-indications du profil, jamais négociables. */
-function isEligible(recipe: RecipeTemplate, profile: UserProfile): boolean {
-  const hasForbiddenAllergen = recipe.allergenTags.some((tag) => profile.allergens.includes(tag))
+/** Filtre dur : allergènes/contre-indications et régime alimentaire, jamais négociables. */
+function isEligible(recipe: RecipeTemplate, allergens: string[], requiredDiet: DietType): boolean {
+  const hasForbiddenAllergen = recipe.allergenTags.some((tag) => allergens.includes(tag))
   if (hasForbiddenAllergen) return false
-  if (recipe.highGI && profile.allergens.includes(DIABETES_TAG)) return false
+  if (recipe.highGI && allergens.includes(DIABETES_TAG)) return false
+  if (!recipe.dietTags.includes(requiredDiet)) return false
   return true
 }
 
@@ -201,8 +217,14 @@ interface Assignment {
  * fraîcheur et variété. `seed` (0 = aucun bruit) permet à "Régénérer" de proposer une variante
  * différente même quand aucune préférence n'a changé.
  */
-export function generateWeekPlan(profile: UserProfile, targets: MacroTargets, constraints: PlannerConstraints, seed = 0): Meal[] {
-  const eligible = RECIPE_POOL.filter((r) => isEligible(r, profile))
+export function generateWeekPlan(
+  targets: MacroTargets,
+  constraints: PlannerConstraints,
+  allergens: string[],
+  requiredDiet: DietType,
+  seed = 0,
+): Meal[] {
+  const eligible = RECIPE_POOL.filter((r) => isEligible(r, allergens, requiredDiet))
   const byRecipeSlot: Record<RecipeSlot, RecipeTemplate[]> = {
     'petit-dejeuner': eligible.filter((r) => r.slot === 'petit-dejeuner'),
     midi: eligible.filter((r) => r.slot === 'midi'),
@@ -318,7 +340,14 @@ export function getRecipeTemplate(mealId: string): RecipeTemplate | undefined {
 }
 
 /** Classe les recettes candidates pour le créneau d'un repas donné, meilleure en premier. */
-function rankAlternatives(plan: Meal[], mealId: string, profile: UserProfile, targets: MacroTargets, constraints: PlannerConstraints): RecipeTemplate[] {
+function rankAlternatives(
+  plan: Meal[],
+  mealId: string,
+  targets: MacroTargets,
+  constraints: PlannerConstraints,
+  allergens: string[],
+  requiredDiet: DietType,
+): RecipeTemplate[] {
   const current = plan.find((m) => m.id === mealId)
   if (!current) return []
 
@@ -326,7 +355,7 @@ function rankAlternatives(plan: Meal[], mealId: string, profile: UserProfile, ta
   const usedElsewhere = new Set(plan.filter((m) => m.id !== mealId && m.slot === current.slot).map((m) => recipeIdFromMealId(m.id)))
 
   const eligible = applyPreferenceFilters(
-    RECIPE_POOL.filter((r) => r.slot === recipeSlotFor(current.slot) && isEligible(r, profile) && r.id !== currentRecipeId),
+    RECIPE_POOL.filter((r) => r.slot === recipeSlotFor(current.slot) && isEligible(r, allergens, requiredDiet) && r.id !== currentRecipeId),
     current.slot,
     constraints,
   )
@@ -349,9 +378,16 @@ function rankAlternatives(plan: Meal[], mealId: string, profile: UserProfile, ta
 }
 
 /** Remplace une recette précise du planning par la meilleure alternative disponible pour ce créneau. */
-export function replaceMealInPlan(plan: Meal[], mealId: string, profile: UserProfile, targets: MacroTargets, constraints: PlannerConstraints): Meal[] {
+export function replaceMealInPlan(
+  plan: Meal[],
+  mealId: string,
+  targets: MacroTargets,
+  constraints: PlannerConstraints,
+  allergens: string[],
+  requiredDiet: DietType,
+): Meal[] {
   const current = plan.find((m) => m.id === mealId)
-  const best = rankAlternatives(plan, mealId, profile, targets, constraints)[0]
+  const best = rankAlternatives(plan, mealId, targets, constraints, allergens, requiredDiet)[0]
   if (!current || !best) return plan
   return plan.map((m) => (m.id === mealId ? toMeal(best, current.day, current.slot) : m))
 }
@@ -360,12 +396,13 @@ export function replaceMealInPlan(plan: Meal[], mealId: string, profile: UserPro
 export function getMealAlternatives(
   plan: Meal[],
   mealId: string,
-  profile: UserProfile,
   targets: MacroTargets,
   constraints: PlannerConstraints,
+  allergens: string[],
+  requiredDiet: DietType,
   count = 3,
 ): RecipeTemplate[] {
-  return rankAlternatives(plan, mealId, profile, targets, constraints).slice(0, count)
+  return rankAlternatives(plan, mealId, targets, constraints, allergens, requiredDiet).slice(0, count)
 }
 
 /** Applique un choix explicite de recette (proposée par getMealAlternatives) à un repas du planning. */

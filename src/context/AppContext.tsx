@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ChatMessage, DeliveryMode, Goal, HouseholdMember, MacroTargets, Meal, PlannerConstraints, RecipeTemplate, ShoppingItem, UserProfile } from '../types'
+import type { ChatMessage, DeliveryMode, DietType, Goal, HouseholdMember, MacroTargets, Meal, PlannerConstraints, RecipeTemplate, ShoppingItem, UserProfile } from '../types'
 import {
+  aggregateAllergens,
   applyMealChoice,
   computeWeekStats,
   generateWeekPlan,
   getMealAlternatives,
+  mostRestrictiveDiet,
   RECIPE_COST_MAP,
   replaceMealInPlan,
   swapMealsBetweenDays,
@@ -22,6 +24,7 @@ export const DEFAULT_PROFILE: UserProfile = {
   weight: 71,
   activityLevel: 'modere',
   goal: 'seche',
+  dietType: 'omnivore',
   allergens: [],
   plan: 'Starter',
 }
@@ -111,7 +114,7 @@ interface AppState {
   targets: MacroTargets
 
   householdMembers: HouseholdMember[]
-  addHouseholdMember: (name: string, goal: Goal, allergens: string[]) => void
+  addHouseholdMember: (name: string, goal: Goal, dietType: DietType, allergens: string[]) => void
   updateHouseholdMember: (id: string, patch: Partial<Omit<HouseholdMember, 'id'>>) => void
   removeHouseholdMember: (id: string) => void
 
@@ -158,6 +161,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [constraints, setConstraintsState] = useState<PlannerConstraints>(persisted?.constraints ?? DEFAULT_CONSTRAINTS)
 
   const targets = useMemo(() => computeTargets(profile), [profile])
+  const householdAllergens = useMemo(() => aggregateAllergens(profile, householdMembers), [profile, householdMembers])
+  const requiredDiet = useMemo(() => mostRestrictiveDiet(profile, householdMembers), [profile, householdMembers])
 
   const [initial] = useState(() => {
     if (persisted?.weekPlan?.length) {
@@ -169,8 +174,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
     const baseProfile = persisted?.profile ?? DEFAULT_PROFILE
+    const baseMembers = persisted?.householdMembers ?? []
     const baseConstraints = persisted?.constraints ?? DEFAULT_CONSTRAINTS
-    const plan = generateWeekPlan(baseProfile, computeTargets(baseProfile), baseConstraints)
+    const plan = generateWeekPlan(
+      computeTargets(baseProfile),
+      baseConstraints,
+      aggregateAllergens(baseProfile, baseMembers),
+      mostRestrictiveDiet(baseProfile, baseMembers),
+    )
     const breakfast = plan.find((m) => m.day === 1 && m.slot === 'petit-dejeuner')
     return {
       plan,
@@ -238,17 +249,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setProfileState((prev) => ({ ...prev, ...p }))
   }
 
-  function addHouseholdMember(name: string, goal: Goal, allergens: string[]) {
-    const member: HouseholdMember = { id: `hm-${Date.now()}-${Math.round(Math.random() * 9999)}`, name, goal, allergens }
-    setHouseholdMembers((prev) => [...prev, member])
+  /** Un changement de foyer (ajout/modif/suppression) peut changer le régime ou les allergènes à respecter
+   *  pour le menu partagé : on régénère immédiatement, comme pour "Valider et régénérer le menu". */
+  function regenerateForHousehold(nextMembers: HouseholdMember[]) {
+    const plan = generateWeekPlan(targets, constraints, aggregateAllergens(profile, nextMembers), mostRestrictiveDiet(profile, nextMembers), regenSeed.current)
+    applyNewPlan(plan)
+  }
+
+  function addHouseholdMember(name: string, goal: Goal, dietType: DietType, allergens: string[]) {
+    const member: HouseholdMember = { id: `hm-${Date.now()}-${Math.round(Math.random() * 9999)}`, name, goal, dietType, allergens }
+    const next = [...householdMembers, member]
+    setHouseholdMembers(next)
+    regenerateForHousehold(next)
   }
 
   function updateHouseholdMember(id: string, patch: Partial<Omit<HouseholdMember, 'id'>>) {
-    setHouseholdMembers((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)))
+    const next = householdMembers.map((m) => (m.id === id ? { ...m, ...patch } : m))
+    setHouseholdMembers(next)
+    regenerateForHousehold(next)
   }
 
   function removeHouseholdMember(id: string) {
-    setHouseholdMembers((prev) => prev.filter((m) => m.id !== id))
+    const next = householdMembers.filter((m) => m.id !== id)
+    setHouseholdMembers(next)
+    regenerateForHousehold(next)
   }
 
   function applyNewPlan(plan: Meal[]) {
@@ -263,7 +287,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   function completeOnboarding() {
     setOnboarded(true)
-    const plan = generateWeekPlan(profile, computeTargets(profile), constraints)
+    const plan = generateWeekPlan(computeTargets(profile), constraints, householdAllergens, requiredDiet)
     setWeekPlan(plan)
     const breakfast = plan.find((m) => m.day === 1 && m.slot === 'petit-dejeuner')
     setConsumedMealIds(breakfast ? [breakfast.id] : [])
@@ -279,20 +303,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   function applyPreferences() {
     regenSeed.current += 1
-    const plan = generateWeekPlan(profile, targets, constraints, regenSeed.current)
+    const plan = generateWeekPlan(targets, constraints, householdAllergens, requiredDiet, regenSeed.current)
     applyNewPlan(plan)
   }
 
   function replaceMeal(mealId: string) {
     const old = weekPlan.find((m) => m.id === mealId)
-    const newPlan = replaceMealInPlan(weekPlan, mealId, profile, targets, constraints)
+    const newPlan = replaceMealInPlan(weekPlan, mealId, targets, constraints, householdAllergens, requiredDiet)
     setWeekPlan(newPlan)
     subtractIfConsumed(old, mealId)
     setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan)), prev))
   }
 
   function mealAlternatives(mealId: string, count = 3): RecipeTemplate[] {
-    return getMealAlternatives(weekPlan, mealId, profile, targets, constraints, count)
+    return getMealAlternatives(weekPlan, mealId, targets, constraints, householdAllergens, requiredDiet, count)
   }
 
   function chooseMealAlternative(mealId: string, recipeId: string) {
