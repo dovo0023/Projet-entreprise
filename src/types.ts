@@ -19,6 +19,9 @@ export type SnackTiming = 'matin' | 'apres_midi' | 'les_deux'
 /** Régime alimentaire : chacun est un sous-ensemble du précédent (végétalien ⊂ végétarien ⊂ pescétarien ⊂ omnivore). */
 export type DietType = 'omnivore' | 'pescetarien' | 'vegetarien' | 'vegetalien'
 
+/** Équipement de cuisine du foyer (la poêle/casserole classique est toujours supposée disponible). */
+export type KitchenEquipment = 'four' | 'micro_ondes' | 'airfryer' | 'blender'
+
 export interface UserProfile {
   firstName: string
   email: string
@@ -83,6 +86,7 @@ export interface RecipeTemplate {
   freshnessTier: number // 1 (ultra-frais, à consommer tôt) .. 3 (longue conservation)
   allergenTags: string[] // subset of ALLERGEN_OPTIONS
   dietTags: DietType[] // régimes que cette recette satisfait (ex. un plat végétalien satisfait les 4)
+  requiredEquipment: KitchenEquipment[] // équipement indispensable (hors poêle/casserole) ; 'four' est aussi couvert par un airfryer
   highGI: boolean // pertinent pour le filtre "contrôle glycémique"
   temperature?: Temperature // midi/soir uniquement : chaud ou froid
   ingredients: Ingredient[]

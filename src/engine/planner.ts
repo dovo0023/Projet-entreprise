@@ -1,5 +1,18 @@
 import { RECIPE_POOL } from './recipes'
-import type { DietType, HotColdPattern, HouseholdMember, MacroTargets, Meal, PlannerConstraints, RecipeSlot, RecipeTemplate, Temperature, TimeBand, UserProfile } from '../types'
+import type {
+  DietType,
+  HotColdPattern,
+  HouseholdMember,
+  KitchenEquipment,
+  MacroTargets,
+  Meal,
+  PlannerConstraints,
+  RecipeSlot,
+  RecipeTemplate,
+  Temperature,
+  TimeBand,
+  UserProfile,
+} from '../types'
 
 const DIABETES_TAG = 'Diabète (contrôle glycémique)'
 
@@ -97,12 +110,19 @@ function applyPreferenceFilters(candidates: RecipeTemplate[], slot: Meal['slot']
   return filterByTemperature(filterByTimeBand(candidates, constraints), slot, constraints)
 }
 
-/** Filtre dur : allergènes/contre-indications et régime alimentaire, jamais négociables. */
-function isEligible(recipe: RecipeTemplate, allergens: string[], requiredDiet: DietType): boolean {
+/** Un airfryer peut remplacer un four pour les recettes qui en ont besoin (cuisson/rôtissage). */
+function hasEquipment(owned: KitchenEquipment[], tag: KitchenEquipment): boolean {
+  if (tag === 'four') return owned.includes('four') || owned.includes('airfryer')
+  return owned.includes(tag)
+}
+
+/** Filtre dur : allergènes/contre-indications, régime alimentaire et équipement de cuisine disponible, jamais négociables. */
+function isEligible(recipe: RecipeTemplate, allergens: string[], requiredDiet: DietType, ownedEquipment: KitchenEquipment[]): boolean {
   const hasForbiddenAllergen = recipe.allergenTags.some((tag) => allergens.includes(tag))
   if (hasForbiddenAllergen) return false
   if (recipe.highGI && allergens.includes(DIABETES_TAG)) return false
   if (!recipe.dietTags.includes(requiredDiet)) return false
+  if (!recipe.requiredEquipment.every((eq) => hasEquipment(ownedEquipment, eq))) return false
   return true
 }
 
@@ -222,9 +242,10 @@ export function generateWeekPlan(
   constraints: PlannerConstraints,
   allergens: string[],
   requiredDiet: DietType,
+  ownedEquipment: KitchenEquipment[],
   seed = 0,
 ): Meal[] {
-  const eligible = RECIPE_POOL.filter((r) => isEligible(r, allergens, requiredDiet))
+  const eligible = RECIPE_POOL.filter((r) => isEligible(r, allergens, requiredDiet, ownedEquipment))
   const byRecipeSlot: Record<RecipeSlot, RecipeTemplate[]> = {
     'petit-dejeuner': eligible.filter((r) => r.slot === 'petit-dejeuner'),
     midi: eligible.filter((r) => r.slot === 'midi'),
@@ -347,6 +368,7 @@ function rankAlternatives(
   constraints: PlannerConstraints,
   allergens: string[],
   requiredDiet: DietType,
+  ownedEquipment: KitchenEquipment[],
 ): RecipeTemplate[] {
   const current = plan.find((m) => m.id === mealId)
   if (!current) return []
@@ -355,7 +377,9 @@ function rankAlternatives(
   const usedElsewhere = new Set(plan.filter((m) => m.id !== mealId && m.slot === current.slot).map((m) => recipeIdFromMealId(m.id)))
 
   const eligible = applyPreferenceFilters(
-    RECIPE_POOL.filter((r) => r.slot === recipeSlotFor(current.slot) && isEligible(r, allergens, requiredDiet) && r.id !== currentRecipeId),
+    RECIPE_POOL.filter(
+      (r) => r.slot === recipeSlotFor(current.slot) && isEligible(r, allergens, requiredDiet, ownedEquipment) && r.id !== currentRecipeId,
+    ),
     current.slot,
     constraints,
   )
@@ -385,9 +409,10 @@ export function replaceMealInPlan(
   constraints: PlannerConstraints,
   allergens: string[],
   requiredDiet: DietType,
+  ownedEquipment: KitchenEquipment[],
 ): Meal[] {
   const current = plan.find((m) => m.id === mealId)
-  const best = rankAlternatives(plan, mealId, targets, constraints, allergens, requiredDiet)[0]
+  const best = rankAlternatives(plan, mealId, targets, constraints, allergens, requiredDiet, ownedEquipment)[0]
   if (!current || !best) return plan
   return plan.map((m) => (m.id === mealId ? toMeal(best, current.day, current.slot) : m))
 }
@@ -400,9 +425,10 @@ export function getMealAlternatives(
   constraints: PlannerConstraints,
   allergens: string[],
   requiredDiet: DietType,
+  ownedEquipment: KitchenEquipment[],
   count = 3,
 ): RecipeTemplate[] {
-  return rankAlternatives(plan, mealId, targets, constraints, allergens, requiredDiet).slice(0, count)
+  return rankAlternatives(plan, mealId, targets, constraints, allergens, requiredDiet, ownedEquipment).slice(0, count)
 }
 
 /** Applique un choix explicite de recette (proposée par getMealAlternatives) à un repas du planning. */

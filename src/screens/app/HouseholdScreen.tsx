@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { ALLERGEN_OPTIONS } from '../../data/mock'
 import { Button, Card, SectionTitle } from '../../components/ui'
-import type { DietType, Goal, HouseholdMember } from '../../types'
+import type { DietType, Goal, HouseholdMember, KitchenEquipment } from '../../types'
 
 const GOAL_OPTIONS: { value: Goal; label: string }[] = [
   { value: 'seche', label: 'Perte de gras / Sèche' },
@@ -31,6 +31,13 @@ const DIET_LABEL: Record<DietType, string> = {
   vegetarien: 'Végétarien',
   vegetalien: 'Végétalien',
 }
+
+const EQUIPMENT_OPTIONS: { value: KitchenEquipment; label: string; hint: string }[] = [
+  { value: 'four', label: 'Four', hint: 'Cuisson, gratins, rôtis' },
+  { value: 'airfryer', label: 'Airfryer', hint: 'Peut remplacer le four' },
+  { value: 'micro_ondes', label: 'Micro-ondes', hint: 'Réchauffer, décongeler' },
+  { value: 'blender', label: 'Blender / Mixeur', hint: 'Smoothies, soupes froides' },
+]
 
 interface MemberFormValue {
   name: string
@@ -129,13 +136,22 @@ function MemberForm({
 
 export default function HouseholdScreen() {
   const navigate = useNavigate()
-  const { profile, setProfile, householdMembers, addHouseholdMember, updateHouseholdMember, removeHouseholdMember } = useApp()
+  const {
+    profile,
+    updateSelfDietaryProfile,
+    householdMembers,
+    addHouseholdMember,
+    updateHouseholdMember,
+    removeHouseholdMember,
+    kitchenEquipment,
+    setKitchenEquipment,
+  } = useApp()
   const [adding, setAdding] = useState(false)
   const [addForm, setAddForm] = useState<MemberFormValue>(EMPTY_FORM)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<MemberFormValue>(EMPTY_FORM)
   const [editingSelf, setEditingSelf] = useState(false)
-  const [selfDiet, setSelfDiet] = useState<DietType>(profile.dietType)
+  const [selfForm, setSelfForm] = useState<MemberFormValue>({ name: profile.firstName, goal: profile.goal, dietType: profile.dietType, allergens: profile.allergens })
 
   function startAdding() {
     setAddForm(EMPTY_FORM)
@@ -159,9 +175,18 @@ export default function HouseholdScreen() {
     setEditingId(null)
   }
 
-  function submitSelfDiet() {
-    setProfile({ dietType: selfDiet })
+  function startEditingSelf() {
+    setSelfForm({ name: profile.firstName, goal: profile.goal, dietType: profile.dietType, allergens: profile.allergens })
+    setEditingSelf(true)
+  }
+
+  function submitSelf() {
+    updateSelfDietaryProfile({ goal: selfForm.goal, dietType: selfForm.dietType, allergens: selfForm.allergens })
     setEditingSelf(false)
+  }
+
+  function toggleEquipment(eq: KitchenEquipment) {
+    setKitchenEquipment(kitchenEquipment.includes(eq) ? kitchenEquipment.filter((e) => e !== eq) : [...kitchenEquipment, eq])
   }
 
   return (
@@ -183,34 +208,18 @@ export default function HouseholdScreen() {
         {editingSelf ? (
           <Card className="fade-up flex flex-col gap-4 mb-6">
             <div className="flex items-center justify-between">
-              <p className="font-bold text-ink text-[14px]">Votre régime alimentaire</p>
+              <p className="font-bold text-ink text-[14px]">Modifier mon profil</p>
               <button onClick={() => setEditingSelf(false)} className="tap w-7 h-7 rounded-full bg-black/5 flex items-center justify-center">
                 <X size={13} />
               </button>
             </div>
-            <div className="flex flex-col gap-2">
-              {DIET_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setSelfDiet(opt.value)}
-                  className={`tap text-left px-3.5 py-3 rounded-2xl border flex items-center justify-between ${
-                    selfDiet === opt.value ? 'border-leaf-500 bg-leaf-50' : 'border-black/10 bg-white'
-                  }`}
-                >
-                  <div>
-                    <span className="font-semibold text-[13.5px] text-ink">{opt.label}</span>
-                    <p className="text-[11.5px] text-ink-soft/60">{opt.hint}</p>
-                  </div>
-                  {selfDiet === opt.value && <Check size={16} className="text-leaf-600 shrink-0" />}
-                </button>
-              ))}
-            </div>
-            <Button full onClick={submitSelfDiet}>
+            <MemberForm value={selfForm} onChange={setSelfForm} showName={false} />
+            <Button full onClick={submitSelf}>
               Enregistrer
             </Button>
           </Card>
         ) : (
-          <button onClick={() => { setSelfDiet(profile.dietType); setEditingSelf(true) }} className="tap w-full text-left mb-6">
+          <button onClick={startEditingSelf} className="tap w-full text-left mb-6">
             <Card className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-ink text-cream flex items-center justify-center text-lg font-extrabold shrink-0">
                 {profile.firstName.charAt(0).toUpperCase()}
@@ -220,6 +229,15 @@ export default function HouseholdScreen() {
                 <p className="text-[12px] text-ink-soft/60">
                   {GOAL_LABEL[profile.goal]} · {DIET_LABEL[profile.dietType]}
                 </p>
+                {profile.allergens.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {profile.allergens.map((a) => (
+                      <span key={a} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-berry-100 text-berry-500">
+                        {a}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <ChevronDown size={16} className="text-ink-soft/40 shrink-0 -rotate-90" />
             </Card>
@@ -227,7 +245,7 @@ export default function HouseholdScreen() {
         )}
 
         <SectionTitle>Autres membres ({householdMembers.length})</SectionTitle>
-        <div className="flex flex-col gap-3 mb-4">
+        <div className="flex flex-col gap-3 mb-6">
           {householdMembers.map((m) =>
             editingId === m.id ? (
               <Card key={m.id} className="fade-up flex flex-col gap-4">
@@ -285,7 +303,7 @@ export default function HouseholdScreen() {
         </div>
 
         {adding ? (
-          <Card className="fade-up flex flex-col gap-4">
+          <Card className="fade-up flex flex-col gap-4 mb-6">
             <div className="flex items-center justify-between">
               <p className="font-bold text-ink text-[14px]">Nouvelle personne</p>
               <button onClick={() => setAdding(false)} className="tap w-7 h-7 rounded-full bg-black/5 flex items-center justify-center">
@@ -298,10 +316,35 @@ export default function HouseholdScreen() {
             </Button>
           </Card>
         ) : (
-          <Button variant="secondary" full onClick={startAdding}>
+          <Button variant="secondary" full onClick={startAdding} className="mb-6">
             <Plus size={16} /> Ajouter une personne
           </Button>
         )}
+
+        <SectionTitle>Équipements de cuisine</SectionTitle>
+        <p className="text-[12.5px] text-ink-soft/70 -mt-1 mb-3">
+          Les recettes proposées s'adaptent à ce que vous avez chez vous (la poêle et la casserole sont toujours supposées disponibles).
+        </p>
+        <Card className="flex flex-col gap-2">
+          {EQUIPMENT_OPTIONS.map((opt) => {
+            const owned = kitchenEquipment.includes(opt.value)
+            return (
+              <button
+                key={opt.value}
+                onClick={() => toggleEquipment(opt.value)}
+                className={`tap text-left px-3.5 py-3 rounded-2xl border flex items-center justify-between ${
+                  owned ? 'border-leaf-500 bg-leaf-50' : 'border-black/10 bg-white'
+                }`}
+              >
+                <div>
+                  <span className="font-semibold text-[13.5px] text-ink">{opt.label}</span>
+                  <p className="text-[11.5px] text-ink-soft/60">{opt.hint}</p>
+                </div>
+                {owned && <Check size={16} className="text-leaf-600 shrink-0" />}
+              </button>
+            )
+          })}
+        </Card>
       </div>
     </div>
   )
