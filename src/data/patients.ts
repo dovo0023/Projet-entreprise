@@ -1,5 +1,5 @@
 import type { PatientSummary } from '../types'
-import { ADHERENCE_HISTORY, WEIGHT_HISTORY } from './mock'
+import { ADHERENCE_HISTORY, SELF_JOURNAL_ENTRIES, WEIGHT_HISTORY } from './mock'
 
 // Le patient "Camille" est le compte B2C de démonstration : ses vraies données
 // (profil, planning, observance) viennent du AppContext au moment de l'affichage.
@@ -14,6 +14,7 @@ export const PATIENTS: PatientSummary[] = [
     actualToday: { kcal: 1531, protein: 92, carbs: 140, fat: 47 },
     weightHistory: WEIGHT_HISTORY,
     adherenceHistory: ADHERENCE_HISTORY,
+    journalEntries: SELF_JOURNAL_ENTRIES,
     lastCheckIn: 'Aujourd’hui',
     linkedToApp: true,
     riskFlags: [],
@@ -50,6 +51,10 @@ export const PATIENTS: PatientSummary[] = [
       { date: 'S7', percent: 58 },
       { date: 'S8', percent: 55 },
     ],
+    journalEntries: [
+      { id: 'je-karim-1', day: 1, time: '13:15', slot: 'midi', description: 'Sandwich jambon-fromage à la boulangerie (pas eu le temps de cuisiner)', kcal: 480, protein: 22, carbs: 50, fat: 20 },
+      { id: 'je-karim-2', day: 1, time: '20:30', slot: 'soir', description: 'Repas prévu sauté, seulement une barre de céréales', kcal: 210, protein: 7, carbs: 28, fat: 8 },
+    ],
     lastCheckIn: 'Il y a 4 jours',
     linkedToApp: false,
     riskFlags: ['Observance en chute depuis 3 semaines (92%→55%)', 'Prise de masse en plateau malgré l’excédent calorique prescrit'],
@@ -75,6 +80,10 @@ export const PATIENTS: PatientSummary[] = [
       { date: 'S2', percent: 61 },
       { date: 'S3', percent: 52 },
       { date: 'S4', percent: 48 },
+    ],
+    journalEntries: [
+      { id: 'je-sophie-1', day: 1, time: '12:30', slot: 'midi', description: 'Trois cuillères de purée, n’a pas pu finir', kcal: 90, protein: 5, carbs: 12, fat: 2 },
+      { id: 'je-sophie-2', day: 1, time: '19:15', slot: 'soir', description: 'Bouillon + un peu de poisson émietté', kcal: 140, protein: 15, carbs: 6, fat: 5 },
     ],
     lastCheckIn: 'Il y a 2 jours',
     linkedToApp: false,
@@ -115,6 +124,7 @@ export const PATIENTS: PatientSummary[] = [
       { date: 'S7', percent: 97 },
       { date: 'S8', percent: 98 },
     ],
+    journalEntries: [],
     lastCheckIn: 'Aujourd’hui',
     linkedToApp: false,
     riskFlags: [],
@@ -139,6 +149,7 @@ export const PATIENTS: PatientSummary[] = [
       { date: 'S3', percent: 59 },
       { date: 'S4', percent: 54 },
     ],
+    journalEntries: [],
     lastCheckIn: 'Il y a 6 jours',
     linkedToApp: false,
     riskFlags: ['Budget courses non respecté 3 semaines sur 4', 'Aucun contact depuis plus de 5 jours'],
@@ -172,6 +183,7 @@ export const PATIENTS: PatientSummary[] = [
       { date: 'S7', percent: 92 },
       { date: 'S8', percent: 90 },
     ],
+    journalEntries: [],
     lastCheckIn: 'Il y a 1 jour',
     linkedToApp: false,
     riskFlags: [],
@@ -189,6 +201,7 @@ export const PATIENTS: PatientSummary[] = [
       { date: '26/08', weight: 74.5 },
     ],
     adherenceHistory: [{ date: 'S1', percent: 80 }],
+    journalEntries: [],
     lastCheckIn: 'Il y a 3 jours',
     linkedToApp: false,
     riskFlags: ['Nouvelle patiente (< 2 semaines) — allergies multiples à sécuriser sur chaque recette prescrite'],

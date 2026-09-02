@@ -1,4 +1,4 @@
-import type { AdherenceEntry, Goal, PersonalRecord, WeightEntry } from '../types'
+import type { AdherenceEntry, Goal, JournalEntry, PersonalRecord, WeightEntry } from '../types'
 
 export const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 
@@ -23,6 +23,13 @@ export const ADHERENCE_HISTORY: AdherenceEntry[] = [
   { date: 'S6', percent: 97 },
   { date: 'S7', percent: 91 },
   { date: 'S8', percent: 96 },
+]
+
+/** Quelques entrées de démo pour le compte principal : des écarts non prévus au menu, typiques de ce
+ *  qu'un journal alimentaire sert à faire remonter au praticien. */
+export const SELF_JOURNAL_ENTRIES: JournalEntry[] = [
+  { id: 'je-self-1', day: 1, time: '10:30', slot: 'encas', description: 'Café + 2 biscuits (pas prévus au menu)', kcal: 140, protein: 2, carbs: 18, fat: 6 },
+  { id: 'je-self-2', day: 1, time: '16:00', slot: 'encas', description: 'Part de gâteau au bureau', kcal: 320, protein: 4, carbs: 42, fat: 15 },
 ]
 
 const WEIGHT_DATES = WEIGHT_HISTORY.map((w) => w.date)
@@ -51,7 +58,7 @@ export function generatePersonalHistory(seedKey: string, goal: Goal): PersonalRe
     percent: Math.round(Math.min(99, 80 + hash01(seedKey, 30 + i) * 16)),
   }))
 
-  return { weightHistory, adherenceHistory }
+  return { weightHistory, adherenceHistory, journalEntries: [] }
 }
 
 export const ALLERGEN_OPTIONS = [

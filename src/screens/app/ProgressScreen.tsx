@@ -1,18 +1,40 @@
-import { Check, Copy, MessageCircle, Scale, Send, TrendingDown, TrendingUp } from 'lucide-react'
+import { Book, Check, Copy, MessageCircle, Plus, Scale, Send, Trash2, TrendingDown, TrendingUp, X } from 'lucide-react'
 import { useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { PATIENT_SHARE_CODE, SELF_RECORD_ID, useApp } from '../../context/AppContext'
 import { Button, Card, SectionTitle } from '../../components/ui'
+import type { JournalSlot } from '../../types'
+
+const JOURNAL_SLOT_OPTIONS: { value: JournalSlot; label: string }[] = [
+  { value: 'petit-dejeuner', label: 'Petit-déj' },
+  { value: 'midi', label: 'Midi' },
+  { value: 'encas', label: 'Encas' },
+  { value: 'soir', label: 'Soir' },
+  { value: 'autre', label: 'Autre' },
+]
+
+const JOURNAL_SLOT_LABEL: Record<JournalSlot, string> = {
+  'petit-dejeuner': 'Petit-déjeuner',
+  midi: 'Midi',
+  encas: 'Encas',
+  soir: 'Soir',
+  autre: 'Autre',
+}
 
 export default function ProgressScreen() {
-  const { profile, householdMembers, personalRecords, logWeight, messages, sendMessage } = useApp()
+  const { profile, householdMembers, personalRecords, logWeight, addJournalEntry, removeJournalEntry, messages, sendMessage } = useApp()
   const people = [{ id: SELF_RECORD_ID, name: profile.firstName }, ...householdMembers.map((m) => ({ id: m.id, name: m.name }))]
   const [selectedId, setSelectedId] = useState(SELF_RECORD_ID)
   const selectedPerson = people.find((p) => p.id === selectedId) ?? people[0]
-  const record = personalRecords[selectedPerson.id] ?? { weightHistory: [], adherenceHistory: [] }
-  const { weightHistory, adherenceHistory } = record
+  const record = personalRecords[selectedPerson.id] ?? { weightHistory: [], adherenceHistory: [], journalEntries: [] }
+  const { weightHistory, adherenceHistory, journalEntries } = record
 
   const [weightInput, setWeightInput] = useState('')
+  const [journalOpen, setJournalOpen] = useState(false)
+  const [journalDesc, setJournalDesc] = useState('')
+  const [journalSlot, setJournalSlot] = useState<JournalSlot>('encas')
+  const [journalTime, setJournalTime] = useState('')
+  const [journalKcal, setJournalKcal] = useState('')
   const [chatOpen, setChatOpen] = useState(false)
   const [messageText, setMessageText] = useState('')
   const [copied, setCopied] = useState(false)
@@ -28,6 +50,7 @@ export default function ProgressScreen() {
   function selectPerson(id: string) {
     setSelectedId(id)
     setWeightInput('')
+    setJournalOpen(false)
   }
 
   function handleLogWeight() {
@@ -35,6 +58,30 @@ export default function ProgressScreen() {
     if (!Number.isFinite(value)) return
     logWeight(selectedPerson.id, value)
     setWeightInput('')
+  }
+
+  function resetJournalForm() {
+    setJournalDesc('')
+    setJournalSlot('encas')
+    setJournalTime('')
+    setJournalKcal('')
+    setJournalOpen(false)
+  }
+
+  function submitJournalEntry() {
+    if (!journalDesc.trim()) return
+    const kcal = journalKcal.trim() ? Number(journalKcal) : null
+    addJournalEntry(selectedPerson.id, {
+      day: 1,
+      time: journalTime.trim(),
+      slot: journalSlot,
+      description: journalDesc.trim(),
+      kcal: Number.isFinite(kcal) ? kcal : null,
+      protein: null,
+      carbs: null,
+      fat: null,
+    })
+    resetJournalForm()
   }
 
   async function copyCode() {
@@ -151,6 +198,98 @@ export default function ProgressScreen() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </Card>
+      </div>
+
+      <div className="px-5 mt-6">
+        <SectionTitle>Journal alimentaire</SectionTitle>
+        <Card className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Book size={15} className="text-leaf-600" />
+            <p className="text-[13px] font-bold text-ink">
+              {selectedPerson.id === SELF_RECORD_ID ? 'Vos écarts au menu' : `Les écarts au menu de ${selectedPerson.name}`}
+            </p>
+          </div>
+          {journalEntries.length === 0 && !journalOpen && (
+            <p className="text-[12.5px] text-ink-soft/50 italic">
+              Notez ici ce que {selectedPerson.id === SELF_RECORD_ID ? 'vous mangez' : `${selectedPerson.name} mange`} en plus ou à la place
+              du menu prévu.
+            </p>
+          )}
+          {journalEntries.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {journalEntries.map((e) => (
+                <div key={e.id} className="flex items-start gap-3 bg-black/[0.03] rounded-2xl px-3.5 py-2.5">
+                  <div className="w-11 h-9 rounded-xl bg-white flex items-center justify-center text-[11px] font-bold text-ink-soft shrink-0">
+                    {e.time || '—'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-leaf-600 uppercase tracking-wide">{JOURNAL_SLOT_LABEL[e.slot]}</p>
+                    <p className="text-[13px] font-semibold text-ink">{e.description}</p>
+                    {e.kcal != null && <p className="text-[11.5px] text-ink-soft/60">{e.kcal} kcal</p>}
+                  </div>
+                  <button
+                    onClick={() => removeJournalEntry(selectedPerson.id, e.id)}
+                    className="tap w-7 h-7 rounded-full bg-white flex items-center justify-center shrink-0 text-ink-soft/50"
+                    aria-label="Supprimer cette note"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {journalOpen ? (
+            <div className="fade-up flex flex-col gap-2.5 pt-3 border-t border-black/5">
+              <input
+                value={journalDesc}
+                onChange={(e) => setJournalDesc(e.target.value)}
+                placeholder="Ex. Part de gâteau au bureau"
+                className="rounded-2xl border border-black/10 px-3.5 py-2.5 text-[13px] outline-none focus:border-leaf-500"
+              />
+              <div className="flex flex-wrap gap-1.5">
+                {JOURNAL_SLOT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setJournalSlot(opt.value)}
+                    className={`tap px-3 py-1.5 rounded-full text-[12px] font-bold border ${
+                      journalSlot === opt.value ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={journalTime}
+                  onChange={(e) => setJournalTime(e.target.value)}
+                  placeholder="Heure (ex. 16:00)"
+                  className="flex-1 rounded-2xl border border-black/10 px-3.5 py-2 text-[13px] outline-none focus:border-leaf-500"
+                />
+                <input
+                  type="number"
+                  value={journalKcal}
+                  onChange={(e) => setJournalKcal(e.target.value)}
+                  placeholder="kcal (facultatif)"
+                  className="flex-1 rounded-2xl border border-black/10 px-3.5 py-2 text-[13px] outline-none focus:border-leaf-500"
+                />
+              </div>
+              <div className="flex gap-2 mt-1">
+                <Button variant="ghost" className="flex-1 !py-2.5" onClick={resetJournalForm}>
+                  <X size={14} /> Annuler
+                </Button>
+                <Button className="flex-1 !py-2.5" disabled={!journalDesc.trim()} onClick={submitJournalEntry}>
+                  Ajouter
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button variant="secondary" full onClick={() => setJournalOpen(true)}>
+              <Plus size={15} /> Ajouter un aliment
+            </Button>
+          )}
         </Card>
       </div>
 

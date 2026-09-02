@@ -5,6 +5,7 @@ import type {
   DietType,
   Goal,
   HouseholdMember,
+  JournalEntry,
   KitchenEquipment,
   MacroTargets,
   Meal,
@@ -28,7 +29,7 @@ import {
 } from '../engine/planner'
 import { consolidateIngredients } from '../engine/shoppingConsolidator'
 import { quoteStores, type StoreQuote } from '../engine/storeQuote'
-import { ADHERENCE_HISTORY, generatePersonalHistory, WEIGHT_HISTORY } from '../data/mock'
+import { ADHERENCE_HISTORY, generatePersonalHistory, SELF_JOURNAL_ENTRIES, WEIGHT_HISTORY } from '../data/mock'
 
 /** Clé du foyer désignant le profil principal dans `personalRecords` (les autres membres utilisent leur `id`). */
 export const SELF_RECORD_ID = 'self'
@@ -72,7 +73,7 @@ const DEFAULT_MESSAGES: ChatMessage[] = [
   { from: 'praticien', text: 'Super Camille, continuez ainsi. On garde le cap sur -350 kcal/j.', time: 'Lun 10:02' },
 ]
 
-const STORAGE_KEY = 'nutriflow_b2c_state_v5'
+const STORAGE_KEY = 'nutriflow_b2c_state_v6'
 
 interface PersistedState {
   onboarded: boolean
@@ -150,6 +151,8 @@ interface AppState {
 
   personalRecords: Record<string, PersonalRecord>
   logWeight: (personId: string, weight: number) => void
+  addJournalEntry: (personId: string, entry: Omit<JournalEntry, 'id'>) => void
+  removeJournalEntry: (personId: string, entryId: string) => void
 
   kitchenEquipment: KitchenEquipment[]
   setKitchenEquipment: (equipment: KitchenEquipment[]) => void
@@ -198,7 +201,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [profile, setProfileState] = useState<UserProfile>(persisted?.profile ?? DEFAULT_PROFILE)
   const [householdMembers, setHouseholdMembers] = useState<HouseholdMember[]>(persisted?.householdMembers ?? [])
   const [personalRecords, setPersonalRecords] = useState<Record<string, PersonalRecord>>(
-    persisted?.personalRecords ?? { [SELF_RECORD_ID]: { weightHistory: WEIGHT_HISTORY, adherenceHistory: ADHERENCE_HISTORY } },
+    persisted?.personalRecords ?? { [SELF_RECORD_ID]: { weightHistory: WEIGHT_HISTORY, adherenceHistory: ADHERENCE_HISTORY, journalEntries: SELF_JOURNAL_ENTRIES } },
   )
   const [constraints, setConstraintsState] = useState<PlannerConstraints>(persisted?.constraints ?? DEFAULT_CONSTRAINTS)
   const [kitchenEquipment, setKitchenEquipmentState] = useState<KitchenEquipment[]>(persisted?.kitchenEquipment ?? DEFAULT_KITCHEN_EQUIPMENT)
@@ -369,6 +372,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  /** Ajoute une entrée libre au journal alimentaire d'une personne (ce qu'elle a mangé en plus/à la place du menu). */
+  function addJournalEntry(personId: string, entry: Omit<JournalEntry, 'id'>) {
+    setPersonalRecords((prev) => {
+      const record = prev[personId] ?? { weightHistory: [], adherenceHistory: [], journalEntries: [] }
+      const newEntry: JournalEntry = { ...entry, id: `je-${Date.now()}-${Math.round(Math.random() * 9999)}` }
+      return { ...prev, [personId]: { ...record, journalEntries: [...record.journalEntries, newEntry] } }
+    })
+  }
+
+  function removeJournalEntry(personId: string, entryId: string) {
+    setPersonalRecords((prev) => {
+      const record = prev[personId]
+      if (!record) return prev
+      return { ...prev, [personId]: { ...record, journalEntries: record.journalEntries.filter((e) => e.id !== entryId) } }
+    })
+  }
+
   function applyNewPlan(plan: Meal[]) {
     setWeekPlan(plan)
     setConsumedMealIds([])
@@ -504,6 +524,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         removeHouseholdMember,
         personalRecords,
         logWeight,
+        addJournalEntry,
+        removeJournalEntry,
         kitchenEquipment,
         setKitchenEquipment,
         cookingIntroSeen,

@@ -133,10 +133,28 @@ export interface AdherenceEntry {
   percent: number
 }
 
-/** Historique de suivi (poids, observance) d'une personne du foyer, suivi individuellement. */
+/** Créneau libre du journal alimentaire (pas forcément lié à un repas généré par le moteur). */
+export type JournalSlot = 'petit-dejeuner' | 'midi' | 'encas' | 'soir' | 'autre'
+
+/** Une entrée que la personne note elle-même dans son journal alimentaire (ce qu'elle a vraiment
+ *  mangé, y compris hors menu prévu) — les macros sont une estimation facultative, pas un calcul exact. */
+export interface JournalEntry {
+  id: string
+  day: number // 1-7
+  time: string // ex. "10:30", affichage libre
+  slot: JournalSlot
+  description: string
+  kcal: number | null
+  protein: number | null
+  carbs: number | null
+  fat: number | null
+}
+
+/** Historique de suivi (poids, observance, journal alimentaire) d'une personne du foyer, suivi individuellement. */
 export interface PersonalRecord {
   weightHistory: WeightEntry[]
   adherenceHistory: AdherenceEntry[]
+  journalEntries: JournalEntry[]
 }
 
 export interface ChatMessage {
@@ -154,6 +172,7 @@ export interface PatientSummary {
   actualToday: MacroTargets
   weightHistory: WeightEntry[]
   adherenceHistory: AdherenceEntry[]
+  journalEntries: JournalEntry[]
   lastCheckIn: string
   linkedToApp: boolean
   riskFlags: string[]

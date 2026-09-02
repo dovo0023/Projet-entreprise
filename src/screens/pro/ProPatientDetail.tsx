@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Check, Send, Smartphone } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Book, Check, Send, Smartphone } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -8,7 +8,15 @@ import { PatientAvatar } from '../../pro/ProLayout'
 import { usePro } from '../../pro/ProContext'
 import { useDisplayPatients } from '../../pro/useDisplayPatients'
 import { MacroBar } from '../../components/ui'
-import type { Goal } from '../../types'
+import type { Goal, JournalSlot } from '../../types'
+
+const JOURNAL_SLOT_LABEL: Record<JournalSlot, string> = {
+  'petit-dejeuner': 'Petit-déjeuner',
+  midi: 'Midi',
+  encas: 'Encas',
+  soir: 'Soir',
+  autre: 'Autre',
+}
 
 const GOAL_OPTIONS: { value: Goal; label: string }[] = [
   { value: 'seche', label: 'Perte de gras / Sèche' },
@@ -140,6 +148,31 @@ export default function ProPatientDetail() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-black/5 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Book size={14} className="text-leaf-600" />
+              <p className="text-[13px] font-bold text-ink-soft/70 uppercase tracking-wide">Journal alimentaire</p>
+            </div>
+            {patient.journalEntries.length === 0 ? (
+              <p className="text-[12.5px] text-ink-soft/50 italic">Aucune note libre pour l’instant.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {patient.journalEntries.map((e) => (
+                  <div key={e.id} className="flex items-start gap-3 bg-black/[0.03] rounded-2xl px-3.5 py-2.5">
+                    <div className="w-11 h-9 rounded-xl bg-white flex items-center justify-center text-[11px] font-bold text-ink-soft shrink-0">
+                      {e.time || '—'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold text-leaf-600 uppercase tracking-wide">{JOURNAL_SLOT_LABEL[e.slot]}</p>
+                      <p className="text-[13px] font-semibold text-ink">{e.description}</p>
+                      {e.kcal != null && <p className="text-[11.5px] text-ink-soft/60">{e.kcal} kcal</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
