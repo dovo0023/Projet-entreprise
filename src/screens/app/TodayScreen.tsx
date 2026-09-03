@@ -5,7 +5,7 @@ import { getRecipeTemplate } from '../../engine/planner'
 import { WEEK_DAYS } from '../../data/mock'
 import { Button, Card, KcalRing, MacroBar, Pill, SectionTitle } from '../../components/ui'
 import FreeMealCard from './FreeMealCard'
-import type { Meal } from '../../types'
+import type { Meal, PlannableSlot } from '../../types'
 
 const SLOT_LABEL: Record<Meal['slot'], string> = {
   'petit-dejeuner': 'Petit-déjeuner',
@@ -29,6 +29,12 @@ function isRiskySwapTarget(meal: Meal, targetDay: number) {
   if (tier === 1 && targetDay >= 4) return true
   if (tier === 2 && targetDay >= 6) return true
   return false
+}
+
+const PLANNABLE_SLOTS: Meal['slot'][] = ['petit-dejeuner', 'midi', 'soir']
+
+function mealNeedKey(slot: PlannableSlot): 'matin' | 'midi' | 'soir' {
+  return slot === 'petit-dejeuner' ? 'matin' : slot
 }
 
 export default function TodayScreen() {
@@ -59,10 +65,10 @@ export default function TodayScreen() {
         <SectionTitle>Vos repas du jour</SectionTitle>
         <div className="flex flex-col gap-3 pb-6">
           {todayMeals.map((meal) => {
-            const isMidiSoir = meal.slot === 'midi' || meal.slot === 'soir'
-            const needed = !isMidiSoir || (mealNeeds[meal.day]?.[meal.slot as 'midi' | 'soir'] ?? true)
-            if (isMidiSoir && !needed) {
-              return <FreeMealCard key={meal.id} day={meal.day} slot={meal.slot as 'midi' | 'soir'} />
+            const isPlannable = PLANNABLE_SLOTS.includes(meal.slot)
+            const needed = !isPlannable || (mealNeeds[meal.day]?.[mealNeedKey(meal.slot as PlannableSlot)] ?? true)
+            if (isPlannable && !needed) {
+              return <FreeMealCard key={meal.id} day={meal.day} slot={meal.slot as PlannableSlot} />
             }
 
             const done = consumedMealIds.includes(meal.id)
@@ -99,9 +105,9 @@ export default function TodayScreen() {
                       </div>
                     </div>
                   </button>
-                  {isMidiSoir && (
+                  {isPlannable && (
                     <button
-                      onClick={() => setDayMealNeed(meal.day, meal.slot as 'midi' | 'soir', false)}
+                      onClick={() => setDayMealNeed(meal.day, meal.slot as PlannableSlot, false)}
                       className="tap shrink-0 w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"
                       aria-label="Marquer ce repas comme libre"
                       title="Je ne prépare pas ce repas"

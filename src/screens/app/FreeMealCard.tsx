@@ -2,20 +2,22 @@ import { Camera, Check, Loader2, RotateCcw, Trash2, UtensilsCrossed } from 'luci
 import { useRef, useState, type ChangeEvent } from 'react'
 import { SELF_RECORD_ID, useApp } from '../../context/AppContext'
 import { Card } from '../../components/ui'
+import type { PlannableSlot } from '../../types'
 
-const SLOT_LABEL = { midi: 'Midi', soir: 'Soir' } as const
+const SLOT_LABEL: Record<PlannableSlot, string> = { 'petit-dejeuner': 'Matin', midi: 'Midi', soir: 'Soir' }
 
 /** Reconnaissance photo simulée (démo) : aucune vraie IA de vision n'est appelée, l'app propose juste un
  *  plat plausible que la personne peut corriger avant d'enregistrer — même principe que le reste du moteur
  *  "IA" de l'app, déterministe et transparent plutôt qu'un vrai modèle. */
-const MOCK_PHOTO_GUESSES: Record<'midi' | 'soir', string[]> = {
+const MOCK_PHOTO_GUESSES: Record<PlannableSlot, string[]> = {
+  'petit-dejeuner': ['Tartines avocat-œuf', 'Porridge fruits rouges', 'Yaourt granola', 'Pancakes banane'],
   midi: ['Salade César au poulet', 'Poke bowl saumon avocat', 'Wrap crudités et houmous', 'Riz cantonais maison'],
   soir: ['Pâtes bolognaise', 'Pizza margherita', 'Curry de légumes et riz', 'Soupe miso et gyozas'],
 }
 
-/** Emplacement d'un repas midi/soir marqué "libre" (pas de recette prévue par l'app) : la personne note
- *  elle-même ce qu'elle mange, à la main ou via une photo (reconnaissance simulée), dans son journal. */
-export default function FreeMealCard({ day, slot }: { day: number; slot: 'midi' | 'soir' }) {
+/** Emplacement d'un repas matin/midi/soir marqué "libre" (pas de recette prévue par l'app) : la personne
+ *  note elle-même ce qu'elle mange, à la main ou via une photo (reconnaissance simulée), dans son journal. */
+export default function FreeMealCard({ day, slot }: { day: number; slot: PlannableSlot }) {
   const { personalRecords, addJournalEntry, removeJournalEntry, setDayMealNeed } = useApp()
   const entries = (personalRecords[SELF_RECORD_ID]?.journalEntries ?? []).filter((e) => e.day === day && e.slot === slot)
   const [description, setDescription] = useState('')

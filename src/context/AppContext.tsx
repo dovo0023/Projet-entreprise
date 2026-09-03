@@ -13,6 +13,7 @@ import type {
   MacroTargets,
   Meal,
   PersonalRecord,
+  PlannableSlot,
   PlannerConstraints,
   PractitionerListing,
   RecipeTemplate,
@@ -131,18 +132,19 @@ export function computeTargets(p: UserProfile): MacroTargets {
   return { kcal, protein, carbs, fat }
 }
 
-/** Par défaut, l'app prévoit midi et soir tous les jours (comportement historique, aucune régression). */
+/** Par défaut, l'app prévoit les 3 repas (matin, midi, soir) tous les jours (comportement historique, aucune
+ *  régression pour les foyers existants). */
 function defaultMealNeeds(): DayMealNeeds {
   const needs: DayMealNeeds = {}
-  for (let day = 1; day <= 7; day++) needs[day] = { midi: true, soir: true }
+  for (let day = 1; day <= 7; day++) needs[day] = { matin: true, midi: true, soir: true }
   return needs
 }
 
-/** Le flux courses (menu → ingrédients → magasin) porte sur les repas de midi, du soir et les encas —
- *  sauf les jours/créneaux marqués "libres" (l'utilisateur mange autre chose, pas besoin de les acheter). */
+/** Le flux courses (menu → ingrédients → magasin) porte sur les repas matin/midi/soir et les encas — sauf
+ *  les jours/créneaux marqués "libres" (l'utilisateur mange autre chose, pas besoin de les acheter). */
 function shoppableMeals(plan: Meal[], mealNeeds: DayMealNeeds): Meal[] {
   return plan.filter((m) => {
-    if (m.slot === 'petit-dejeuner') return false
+    if (m.slot === 'petit-dejeuner') return mealNeeds[m.day]?.matin ?? true
     if (m.slot === 'midi') return mealNeeds[m.day]?.midi ?? true
     if (m.slot === 'soir') return mealNeeds[m.day]?.soir ?? true
     return true
@@ -181,8 +183,8 @@ interface AppState {
   weekStats: WeekStats
 
   mealNeeds: DayMealNeeds
-  setMealNeedsForAllDays: (midi: boolean, soir: boolean) => void
-  setDayMealNeed: (day: number, slot: 'midi' | 'soir', needed: boolean) => void
+  applyDaySlotSelection: (days: number[], slots: { matin: boolean; midi: boolean; soir: boolean }) => void
+  setDayMealNeed: (day: number, slot: PlannableSlot, needed: boolean) => void
 
   applyPreferences: () => void
 
@@ -426,18 +428,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setOrderPlaced(false)
   }
 
-  /** Réglage global "combien de repas prévoir cette semaine" (questionnaire Courses / panneau Préférences) :
-   *  s'applique aux 7 jours d'un coup. Un ajustement plus fin, jour par jour, se fait ensuite depuis Planning. */
-  function setMealNeedsForAllDays(midi: boolean, soir: boolean) {
+  /** Réglage "jours à prévoir" × "repas à prévoir" (assistant Courses en 2 étapes / panneau Préférences) :
+   *  recalcule la grille jour × créneau en croisant les deux sélections. Un ajustement plus fin, repas par
+   *  repas, se fait ensuite depuis Planning ou Aujourd'hui (bascule "repas libre"). */
+  function applyDaySlotSelection(days: number[], slots: { matin: boolean; midi: boolean; soir: boolean }) {
     const next: DayMealNeeds = {}
-    for (let day = 1; day <= 7; day++) next[day] = { midi, soir }
+    for (let day = 1; day <= 7; day++) {
+      const active = days.includes(day)
+      next[day] = { matin: active && slots.matin, midi: active && slots.midi, soir: active && slots.soir }
+    }
     setMealNeeds(next)
     setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(weekPlan, next)), prev))
   }
 
   /** Bascule un jour/créneau précis entre "repas prévu par l'app" et "repas libre" (Planning/Aujourd'hui). */
-  function setDayMealNeed(day: number, slot: 'midi' | 'soir', needed: boolean) {
-    const next: DayMealNeeds = { ...mealNeeds, [day]: { midi: mealNeeds[day]?.midi ?? true, soir: mealNeeds[day]?.soir ?? true, [slot]: needed } }
+  function setDayMealNeed(day: number, slot: PlannableSlot, needed: boolean) {
+    const current = mealNeeds[day] ?? { matin: true, midi: true, soir: true }
+    const key = slot === 'petit-dejeuner' ? 'matin' : slot
+    const next: DayMealNeeds = { ...mealNeeds, [day]: { ...current, [key]: needed } }
     setMealNeeds(next)
     setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(weekPlan, next)), prev))
   }
@@ -587,7 +595,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setConstraints,
         weekStats,
         mealNeeds,
-        setMealNeedsForAllDays,
+        applyDaySlotSelection,
         setDayMealNeed,
         applyPreferences,
         courseStep,

@@ -1,5 +1,5 @@
 import { ChevronRight, RefreshCcw, ShoppingBasket, SlidersHorizontal, Timer, Zap } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useApp } from '../../../context/AppContext'
 import { WEEK_DAYS } from '../../../data/mock'
 import { Button, Card, Pill, SectionTitle } from '../../../components/ui'
@@ -7,18 +7,19 @@ import PreferencesPanel from './PreferencesPanel'
 import type { Meal } from '../../../types'
 
 const SLOT_LABEL: Record<Meal['slot'], string> = {
-  'petit-dejeuner': 'Petit-déjeuner',
+  'petit-dejeuner': 'Matin',
   'encas-matin': 'Encas du matin',
   midi: 'Midi',
   'encas-apresmidi': 'Encas de l’après-midi',
   soir: 'Soir',
 }
 
-const SLOT_ORDER: Meal['slot'][] = ['encas-matin', 'midi', 'encas-apresmidi', 'soir']
+const SLOT_ORDER: Meal['slot'][] = ['petit-dejeuner', 'encas-matin', 'midi', 'encas-apresmidi', 'soir']
 
 export default function MenuStep() {
   const { weekPlan, replaceMeal, applyPreferences, setCourseStep, mealNeeds } = useApp()
   const [prefsOpen, setPrefsOpen] = useState(false)
+  const nothingPlanned = useMemo(() => Object.values(mealNeeds).every((d) => !d.matin && !d.midi && !d.soir), [mealNeeds])
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -46,11 +47,17 @@ export default function MenuStep() {
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-4 flex flex-col gap-6">
+        {nothingPlanned && (
+          <p className="text-[13px] text-ink-soft/60 text-center py-8">
+            Aucun repas prévu cette semaine — ouvrez Préférences pour en ajouter.
+          </p>
+        )}
         {WEEK_DAYS.map((dayName, idx) => {
           const dayNum = idx + 1
           const dayMeals = weekPlan
             .filter((m) => {
-              if (m.slot === 'petit-dejeuner') return false
+              if (m.day !== dayNum) return false
+              if (m.slot === 'petit-dejeuner') return mealNeeds[dayNum]?.matin ?? true
               if (m.slot === 'midi') return mealNeeds[dayNum]?.midi ?? true
               if (m.slot === 'soir') return mealNeeds[dayNum]?.soir ?? true
               return true

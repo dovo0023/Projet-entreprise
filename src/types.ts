@@ -133,9 +133,13 @@ export interface AdherenceEntry {
   percent: number
 }
 
-/** Pour un jour de la semaine (1-7), indique si l'app doit prévoir une recette midi/soir, ou si la personne
- *  mange "libre" ce jour-là (repas non planifié par l'app, noté à la main dans Planning/Aujourd'hui). */
-export type DayMealNeeds = Record<number, { midi: boolean; soir: boolean }>
+/** Pour un jour de la semaine (1-7), indique si l'app doit prévoir une recette matin/midi/soir, ou si la
+ *  personne mange "libre" ce jour-là (repas non planifié par l'app, noté à la main dans Planning/Aujourd'hui). */
+export type DayMealNeeds = Record<number, { matin: boolean; midi: boolean; soir: boolean }>
+
+/** Créneau planifiable depuis le parcours Courses (choix des jours puis des repas) — le petit-déjeuner y est
+ *  désigné "matin" à l'écran mais correspond au créneau `petit-dejeuner` du moteur. */
+export type PlannableSlot = 'petit-dejeuner' | 'midi' | 'soir'
 
 /** Créneau libre du journal alimentaire (pas forcément lié à un repas généré par le moteur). */
 export type JournalSlot = 'petit-dejeuner' | 'midi' | 'encas' | 'soir' | 'autre'

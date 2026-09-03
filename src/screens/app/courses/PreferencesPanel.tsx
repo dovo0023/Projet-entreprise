@@ -1,9 +1,12 @@
 import { Clock, Flame, Wallet, X } from 'lucide-react'
+import { useMemo } from 'react'
 import { useApp } from '../../../context/AppContext'
 import { Button } from '../../../components/ui'
 import CookingSessionsFields from './CookingSessionsFields'
+import DaysField from './DaysField'
 import EncasField from './EncasField'
-import MealNeedsFields from './MealNeedsFields'
+import { aggregateDays, aggregateSlots } from './mealNeedsUtils'
+import SlotsField from './SlotsField'
 import type { TimeBand } from '../../../types'
 
 const TIME_OPTIONS: { value: TimeBand | null; label: string }[] = [
@@ -14,8 +17,10 @@ const TIME_OPTIONS: { value: TimeBand | null; label: string }[] = [
 ]
 
 export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
-  const { constraints, setConstraints, applyPreferences } = useApp()
+  const { constraints, setConstraints, applyPreferences, mealNeeds, applyDaySlotSelection } = useApp()
   const budgetActive = constraints.weeklyBudget != null
+  const days = useMemo(() => aggregateDays(mealNeeds), [mealNeeds])
+  const slots = useMemo(() => aggregateSlots(mealNeeds), [mealNeeds])
 
   function apply() {
     applyPreferences()
@@ -32,7 +37,8 @@ export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-5 flex flex-col gap-7">
-        <MealNeedsFields />
+        <DaysField days={days} onChange={(next) => applyDaySlotSelection(next, slots)} />
+        <SlotsField slots={slots} onChange={(next) => applyDaySlotSelection(days, next)} />
         <EncasField />
         <CookingSessionsFields />
 
