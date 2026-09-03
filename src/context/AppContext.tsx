@@ -197,6 +197,7 @@ interface AppState {
   mealNeeds: DayMealNeeds
   applyDaySlotSelection: (days: number[], slots: { matin: boolean; midi: boolean; soir: boolean }) => void
   setDayMealNeed: (day: number, slot: PlannableSlot, needed: boolean) => void
+  swapFreeMealWithDay: (freeDay: number, slot: PlannableSlot, targetDay: number) => void
 
   applyPreferences: () => void
 
@@ -528,6 +529,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan, mealNeeds)), prev))
   }
 
+  /** Un repas "libre" (jour X) reprend vie en échangeant sa place avec un repas réellement prévu (jour Y,
+   *  déjà acheté) du même créneau : X récupère la recette de Y, et Y devient à son tour "libre" — plutôt que
+   *  de simplement re-marquer X comme "prévu", ce qui ferait réapparaître une recette jamais achetée (pas
+   *  incluse dans la liste de courses au moment où X avait été marqué libre). */
+  function swapFreeMealWithDay(freeDay: number, slot: PlannableSlot, targetDay: number) {
+    const freeMeal = weekPlan.find((m) => m.day === freeDay && m.slot === slot)
+    const targetMeal = weekPlan.find((m) => m.day === targetDay && m.slot === slot)
+    if (!freeMeal || !targetMeal) return
+    const newPlan = swapMealsBetweenDays(weekPlan, freeMeal.id, targetMeal.id)
+    subtractIfConsumed(freeMeal, freeMeal.id)
+    subtractIfConsumed(targetMeal, targetMeal.id)
+    const key = slot === 'petit-dejeuner' ? 'matin' : slot
+    const nextNeeds: DayMealNeeds = {
+      ...mealNeeds,
+      [freeDay]: { ...(mealNeeds[freeDay] ?? { matin: true, midi: true, soir: true }), [key]: true },
+      [targetDay]: { ...(mealNeeds[targetDay] ?? { matin: true, midi: true, soir: true }), [key]: false },
+    }
+    setWeekPlan(newPlan)
+    setMealNeeds(nextNeeds)
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan, nextNeeds)), prev))
+  }
+
   function subtractIfConsumed(old: Meal | undefined, mealId: string) {
     if (!old || !consumedMealIds.includes(mealId)) return
     setConsumedMealIds((prev) => prev.filter((id) => id !== mealId))
@@ -659,6 +682,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         mealNeeds,
         applyDaySlotSelection,
         setDayMealNeed,
+        swapFreeMealWithDay,
         applyPreferences,
         courseStep,
         setCourseStep,
