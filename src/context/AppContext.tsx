@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type {
+  Appointment,
+  AppointmentSlot,
   ChatMessage,
   DeliveryMode,
   DietType,
@@ -11,6 +13,7 @@ import type {
   Meal,
   PersonalRecord,
   PlannerConstraints,
+  PractitionerListing,
   RecipeTemplate,
   ShoppingItem,
   UserProfile,
@@ -92,6 +95,7 @@ interface PersistedState {
   chosenStoreId: string | null
   chosenDeliveryMode: DeliveryMode | null
   orderPlaced: boolean
+  appointments: Appointment[]
 }
 
 function loadPersisted(): Partial<PersistedState> | null {
@@ -190,6 +194,10 @@ interface AppState {
 
   messages: ChatMessage[]
   sendMessage: (from: ChatMessage['from'], text: string) => void
+
+  appointments: Appointment[]
+  bookAppointment: (practitioner: PractitionerListing, slot: AppointmentSlot) => void
+  cancelAppointment: (id: string) => void
 }
 
 const AppContext = createContext<AppState | null>(null)
@@ -247,6 +255,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [consumed, setConsumed] = useState<MacroTargets>(initial.consumed)
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(initial.shoppingList)
   const [messages, setMessages] = useState<ChatMessage[]>(persisted?.messages ?? DEFAULT_MESSAGES)
+  const [appointments, setAppointments] = useState<Appointment[]>(persisted?.appointments ?? [])
 
   const [courseStep, setCourseStep] = useState<CourseStep>(persisted?.courseStep ?? 'menu')
   const [chosenStoreId, setChosenStoreId] = useState<string | null>(persisted?.chosenStoreId ?? null)
@@ -276,6 +285,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         chosenStoreId,
         chosenDeliveryMode,
         orderPlaced,
+        appointments,
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
     } catch {
@@ -298,6 +308,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     chosenStoreId,
     chosenDeliveryMode,
     orderPlaced,
+    appointments,
   ])
 
   function setProfile(p: Partial<UserProfile>) {
@@ -509,6 +520,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMessages((prev) => [...prev, { from, text, time: 'À l’instant' }])
   }
 
+  /** Réserve un créneau auprès d'un praticien de l'annuaire "près de chez moi". */
+  function bookAppointment(practitioner: PractitionerListing, slot: AppointmentSlot) {
+    const appointment: Appointment = {
+      id: `apt-${Date.now()}-${Math.round(Math.random() * 9999)}`,
+      practitionerId: practitioner.id,
+      practitionerName: practitioner.name,
+      dayLabel: slot.dayLabel,
+      time: slot.time,
+    }
+    setAppointments((prev) => [...prev, appointment])
+  }
+
+  function cancelAppointment(id: string) {
+    setAppointments((prev) => prev.filter((a) => a.id !== id))
+  }
+
   return (
     <AppContext.Provider
       value={{
@@ -554,6 +581,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         resetOrder,
         messages,
         sendMessage,
+        appointments,
+        bookAppointment,
+        cancelAppointment,
       }}
     >
       {children}

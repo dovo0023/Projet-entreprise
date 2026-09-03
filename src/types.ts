@@ -163,6 +163,35 @@ export interface ChatMessage {
   time: string
 }
 
+/** Un créneau proposé par un praticien de l'annuaire (affichage seul, pas de vraie disponibilité en temps réel). */
+export interface AppointmentSlot {
+  id: string
+  dayLabel: string // ex. "Lun 8 sept"
+  time: string // ex. "14:30"
+}
+
+/** Fiche d'un(e) diététicien(ne) de l'annuaire "près de chez moi" (données de démo, pas de vrai annuaire/géoloc). */
+export interface PractitionerListing {
+  id: string
+  name: string
+  photo: string
+  specialty: string
+  city: string
+  distanceKm: number
+  rating: number
+  reviewCount: number
+  slots: AppointmentSlot[]
+}
+
+/** Un rendez-vous confirmé par la patiente auprès d'un praticien de l'annuaire. */
+export interface Appointment {
+  id: string
+  practitionerId: string
+  practitionerName: string
+  dayLabel: string
+  time: string
+}
+
 export interface PatientSummary {
   id: string
   name: string
