@@ -1,10 +1,11 @@
 import { AlertTriangle, ArrowLeftRight, Check, Clock, UtensilsCrossed, Users, Zap } from 'lucide-react'
 import { useState } from 'react'
-import { useApp } from '../../context/AppContext'
+import { SELF_RECORD_ID, useApp } from '../../context/AppContext'
 import { getRecipeTemplate } from '../../engine/planner'
 import { WEEK_DAYS } from '../../data/mock'
 import { Button, Card, KcalRing, MacroBar, Pill, SectionTitle } from '../../components/ui'
 import FreeMealCard from './FreeMealCard'
+import JournalField from './JournalField'
 import type { Meal, PlannableSlot } from '../../types'
 
 const SLOT_LABEL: Record<Meal['slot'], string> = {
@@ -184,6 +185,18 @@ export default function TodayScreen() {
               </Card>
             )
           })}
+        </div>
+      </div>
+
+      <div className="px-5">
+        <SectionTitle>Journal du jour</SectionTitle>
+        <div className="pb-6">
+          <JournalField
+            personId={SELF_RECORD_ID}
+            day={1}
+            title="Vos écarts au menu"
+            emptyText="Notez ici ce que vous mangez en plus ou à la place du menu prévu."
+          />
         </div>
       </div>
     </div>
