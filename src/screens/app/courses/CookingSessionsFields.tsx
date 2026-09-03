@@ -40,9 +40,11 @@ function Stepper({ value, min, max, onChange }: { value: number; min: number; ma
 }
 
 /** Champs "Sessions de cuisine" + "Répartition chaud/froid" partagés entre le panneau Préférences et le
- *  questionnaire de bienvenue affiché au premier passage dans Courses. */
+ *  questionnaire de bienvenue de Courses. Corrélés avec "Repas à prévoir cette semaine" : un créneau que
+ *  personne ne prévoit cette semaine (ex. "Seulement le midi") n'a pas de question de rythme de cuisine. */
 export default function CookingSessionsFields() {
-  const { constraints, setConstraints } = useApp()
+  const { constraints, setConstraints, mealNeeds } = useApp()
+  const activeSlots = MEAL_SLOTS.filter(({ key }) => Object.values(mealNeeds).some((d) => d[key]))
 
   function setSessions(slot: 'midi' | 'soir', next: number) {
     const clamped = Math.max(1, Math.min(7, next))
@@ -76,7 +78,7 @@ export default function CookingSessionsFields() {
           les jours suivants (ex. 1 kg de poulet cuisiné une fois pour plusieurs repas).
         </p>
         <div className="flex flex-col gap-2">
-          {MEAL_SLOTS.map(({ key, label }) => (
+          {activeSlots.map(({ key, label }) => (
             <div key={key} className="bg-black/[0.03] rounded-2xl px-4 py-3">
               <div className="flex items-center justify-between">
                 <p className="font-semibold text-[13px] text-ink">{label}</p>
@@ -94,7 +96,7 @@ export default function CookingSessionsFields() {
           <p className="text-[13px] font-bold text-ink uppercase tracking-wide">Répartition chaud / froid</p>
         </div>
         <div className="flex flex-col gap-2">
-          {MEAL_SLOTS.map(({ key, label }) => {
+          {activeSlots.map(({ key, label }) => {
             const sessions = constraints.cookingSessions[key]
             const hot = constraints.hotSessions[key]
             const active = hot != null

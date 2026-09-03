@@ -1,21 +1,16 @@
-import { Clock, Coffee, Flame, Wallet, X } from 'lucide-react'
+import { Clock, Flame, Wallet, X } from 'lucide-react'
 import { useApp } from '../../../context/AppContext'
 import { Button } from '../../../components/ui'
 import CookingSessionsFields from './CookingSessionsFields'
+import EncasField from './EncasField'
 import MealNeedsFields from './MealNeedsFields'
-import type { SnackTiming, TimeBand } from '../../../types'
+import type { TimeBand } from '../../../types'
 
 const TIME_OPTIONS: { value: TimeBand | null; label: string }[] = [
   { value: null, label: 'Peu importe' },
   { value: 'court', label: '< 15 min' },
   { value: 'moyen', label: '15 – 30 min' },
   { value: 'long', label: '30 min +' },
-]
-
-const SNACK_TIMING_OPTIONS: { value: SnackTiming; label: string }[] = [
-  { value: 'matin', label: 'Le matin' },
-  { value: 'apres_midi', label: 'L’après-midi' },
-  { value: 'les_deux', label: 'Les deux' },
 ]
 
 export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
@@ -38,6 +33,7 @@ export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-5 flex flex-col gap-7">
         <MealNeedsFields />
+        <EncasField />
         <CookingSessionsFields />
 
         <section>
@@ -58,38 +54,6 @@ export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
               </button>
             ))}
           </div>
-        </section>
-
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Coffee size={15} className="text-leaf-600" />
-              <p className="text-[13px] font-bold text-ink uppercase tracking-wide">Encas</p>
-            </div>
-            <button
-              onClick={() => setConstraints({ snacks: { ...constraints.snacks, enabled: !constraints.snacks.enabled } })}
-              className={`tap px-3.5 py-1.5 rounded-full text-[12px] font-bold ${
-                constraints.snacks.enabled ? 'bg-leaf-500 text-white' : 'bg-black/5 text-ink-soft'
-              }`}
-            >
-              {constraints.snacks.enabled ? 'Activés' : 'Désactivés'}
-            </button>
-          </div>
-          {constraints.snacks.enabled && (
-            <div className="flex gap-2 fade-up">
-              {SNACK_TIMING_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setConstraints({ snacks: { ...constraints.snacks, timing: opt.value } })}
-                  className={`tap flex-1 px-2 py-2 rounded-xl text-[12px] font-bold border ${
-                    constraints.snacks.timing === opt.value ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
         </section>
 
         <section>

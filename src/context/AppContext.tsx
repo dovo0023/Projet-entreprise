@@ -85,7 +85,6 @@ interface PersistedState {
   householdMembers: HouseholdMember[]
   personalRecords: Record<string, PersonalRecord>
   kitchenEquipment: KitchenEquipment[]
-  cookingIntroSeen: boolean
   constraints: PlannerConstraints
   mealNeeds: DayMealNeeds
   weekPlan: Meal[]
@@ -176,9 +175,6 @@ interface AppState {
   kitchenEquipment: KitchenEquipment[]
   setKitchenEquipment: (equipment: KitchenEquipment[]) => void
 
-  cookingIntroSeen: boolean
-  completeCookingIntro: () => void
-
   weekPlan: Meal[]
   constraints: PlannerConstraints
   setConstraints: (c: Partial<PlannerConstraints>) => void
@@ -233,7 +229,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [constraints, setConstraintsState] = useState<PlannerConstraints>(persisted?.constraints ?? DEFAULT_CONSTRAINTS)
   const [mealNeeds, setMealNeeds] = useState<DayMealNeeds>(persisted?.mealNeeds ?? defaultMealNeeds())
   const [kitchenEquipment, setKitchenEquipmentState] = useState<KitchenEquipment[]>(persisted?.kitchenEquipment ?? DEFAULT_KITCHEN_EQUIPMENT)
-  const [cookingIntroSeen, setCookingIntroSeen] = useState(persisted?.cookingIntroSeen ?? false)
 
   const targets = useMemo(() => computeTargets(profile), [profile])
   const householdAllergens = useMemo(() => aggregateAllergens(profile, householdMembers), [profile, householdMembers])
@@ -295,7 +290,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         householdMembers,
         personalRecords,
         kitchenEquipment,
-        cookingIntroSeen,
         constraints,
         mealNeeds,
         weekPlan,
@@ -319,7 +313,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     householdMembers,
     personalRecords,
     kitchenEquipment,
-    cookingIntroSeen,
     constraints,
     mealNeeds,
     weekPlan,
@@ -456,11 +449,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     applyNewPlan(plan)
   }
 
-  /** Marque le questionnaire de bienvenue de Courses comme vu, qu'il ait été validé ou passé. */
-  function completeCookingIntro() {
-    setCookingIntroSeen(true)
-  }
-
   function completeOnboarding() {
     setOnboarded(true)
     const plan = generateWeekPlan(computeTargets(profile), constraints, householdAllergens, requiredDiet, kitchenEquipment)
@@ -594,8 +582,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         removeJournalEntry,
         kitchenEquipment,
         setKitchenEquipment,
-        cookingIntroSeen,
-        completeCookingIntro,
         weekPlan,
         constraints,
         setConstraints,
