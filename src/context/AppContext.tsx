@@ -9,6 +9,7 @@ import type {
   Goal,
   HouseholdMember,
   JournalEntry,
+  JournalSlot,
   KitchenEquipment,
   MacroTargets,
   Meal,
@@ -80,6 +81,10 @@ const DEFAULT_MESSAGES: ChatMessage[] = [
 
 const STORAGE_KEY = 'nutriflow_b2c_state_v6'
 
+/** Pour un repas prévu (identifié par son id) que la personne n'a pas mangé tel quel : ce qu'elle a mangé à
+ *  la place, avec l'id de l'entrée du journal correspondante (pour pouvoir annuler proprement). */
+type MealReplacements = Record<string, { entryId: string; description: string; kcal: number }>
+
 interface PersistedState {
   onboarded: boolean
   profile: UserProfile
@@ -91,6 +96,7 @@ interface PersistedState {
   weekPlan: Meal[]
   consumedMealIds: string[]
   consumed: MacroTargets
+  mealReplacements: MealReplacements
   shoppingList: ShoppingItem[]
   messages: ChatMessage[]
   courseStep: CourseStep
@@ -151,6 +157,12 @@ function shoppableMeals(plan: Meal[], mealNeeds: DayMealNeeds): Meal[] {
   })
 }
 
+/** Fait correspondre le créneau technique d'un repas généré au créneau (plus large) du journal alimentaire. */
+function journalSlotForMeal(slot: Meal['slot']): JournalSlot {
+  if (slot === 'encas-matin' || slot === 'encas-apresmidi') return 'encas'
+  return slot
+}
+
 function mergeHaveAtHome(newItems: ShoppingItem[], prevItems: ShoppingItem[]): ShoppingItem[] {
   const owned = new Set(prevItems.filter((i) => i.haveAtHome).map((i) => i.name.toLowerCase()))
   return newItems.map((i) => (owned.has(i.name.toLowerCase()) ? { ...i, haveAtHome: true } : i))
@@ -199,6 +211,10 @@ interface AppState {
   consumedMealIds: string[]
   toggleMealConsumed: (mealId: string, kcal: number, protein: number, carbs: number, fat: number) => void
   consumed: MacroTargets
+
+  mealReplacements: MealReplacements
+  logMealReplacement: (meal: Meal, description: string, kcal: number | null) => void
+  cancelMealReplacement: (mealId: string) => void
 
   shoppingList: ShoppingItem[]
   toggleHaveAtHome: (id: string) => void
@@ -271,6 +287,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [weekPlan, setWeekPlan] = useState<Meal[]>(initial.plan)
   const [consumedMealIds, setConsumedMealIds] = useState<string[]>(initial.consumedMealIds)
   const [consumed, setConsumed] = useState<MacroTargets>(initial.consumed)
+  const [mealReplacements, setMealReplacements] = useState<MealReplacements>(persisted?.mealReplacements ?? {})
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(initial.shoppingList)
   const [messages, setMessages] = useState<ChatMessage[]>(persisted?.messages ?? DEFAULT_MESSAGES)
   const [appointments, setAppointments] = useState<Appointment[]>(persisted?.appointments ?? [])
@@ -297,6 +314,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         weekPlan,
         consumedMealIds,
         consumed,
+        mealReplacements,
         shoppingList,
         messages,
         courseStep,
@@ -320,6 +338,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     weekPlan,
     consumedMealIds,
     consumed,
+    mealReplacements,
     shoppingList,
     messages,
     courseStep,
@@ -534,6 +553,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  /** Un repas prévu n'a pas été respecté : ce qui a été mangé à la place part dans le journal alimentaire
+   *  et son kcal (estimé à la main ou par la reconnaissance photo simulée) remplace celui du repas prévu
+   *  dans le total "Aujourd'hui" — sans macros détaillées, faute d'estimation IA au-delà du kcal global. */
+  function logMealReplacement(meal: Meal, description: string, kcal: number | null) {
+    const previous = mealReplacements[meal.id]
+    if (previous) {
+      removeJournalEntry(SELF_RECORD_ID, previous.entryId)
+      setConsumed((c) => ({ ...c, kcal: Math.max(0, c.kcal - previous.kcal) }))
+    }
+    if (consumedMealIds.includes(meal.id)) {
+      toggleMealConsumed(meal.id, meal.kcal, meal.protein, meal.carbs, meal.fat)
+    }
+    const entryId = `je-${Date.now()}-${Math.round(Math.random() * 9999)}`
+    const entry: JournalEntry = {
+      id: entryId,
+      day: meal.day,
+      time: '',
+      slot: journalSlotForMeal(meal.slot),
+      description,
+      kcal,
+      protein: null,
+      carbs: null,
+      fat: null,
+    }
+    setPersonalRecords((prev) => {
+      const record = prev[SELF_RECORD_ID] ?? { weightHistory: [], adherenceHistory: [], journalEntries: [] }
+      return { ...prev, [SELF_RECORD_ID]: { ...record, journalEntries: [...record.journalEntries, entry] } }
+    })
+    setMealReplacements((prev) => ({ ...prev, [meal.id]: { entryId, description, kcal: kcal ?? 0 } }))
+    if (kcal) setConsumed((c) => ({ ...c, kcal: c.kcal + kcal }))
+  }
+
+  function cancelMealReplacement(mealId: string) {
+    const replacement = mealReplacements[mealId]
+    if (!replacement) return
+    removeJournalEntry(SELF_RECORD_ID, replacement.entryId)
+    setConsumed((c) => ({ ...c, kcal: Math.max(0, c.kcal - replacement.kcal) }))
+    setMealReplacements((prev) => {
+      const { [mealId]: _removed, ...rest } = prev
+      return rest
+    })
+  }
+
   function toggleHaveAtHome(id: string) {
     setShoppingList((prev) => prev.map((i) => (i.id === id ? { ...i, haveAtHome: !i.haveAtHome } : i)))
   }
@@ -607,6 +669,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         consumedMealIds,
         toggleMealConsumed,
         consumed,
+        mealReplacements,
+        logMealReplacement,
+        cancelMealReplacement,
         shoppingList,
         toggleHaveAtHome,
         storeQuotes,

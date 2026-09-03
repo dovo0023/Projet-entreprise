@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeftRight, Check, Clock, UtensilsCrossed, Users, Zap } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, Camera, Check, Clock, RotateCcw, UtensilsCrossed, Users, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { SELF_RECORD_ID, useApp } from '../../context/AppContext'
 import { getRecipeTemplate } from '../../engine/planner'
@@ -6,6 +6,7 @@ import { WEEK_DAYS } from '../../data/mock'
 import { Button, Card, KcalRing, MacroBar, Pill, SectionTitle } from '../../components/ui'
 import FreeMealCard from './FreeMealCard'
 import JournalField from './JournalField'
+import MealReplacementForm from './MealReplacementForm'
 import type { Meal, PlannableSlot } from '../../types'
 
 const SLOT_LABEL: Record<Meal['slot'], string> = {
@@ -39,10 +40,24 @@ function mealNeedKey(slot: PlannableSlot): 'matin' | 'midi' | 'soir' {
 }
 
 export default function TodayScreen() {
-  const { weekPlan, targets, consumed, consumedMealIds, toggleMealConsumed, swapMeals, profile, householdMembers, mealNeeds, setDayMealNeed } = useApp()
+  const {
+    weekPlan,
+    targets,
+    consumed,
+    consumedMealIds,
+    toggleMealConsumed,
+    swapMeals,
+    profile,
+    householdMembers,
+    mealNeeds,
+    setDayMealNeed,
+    mealReplacements,
+    cancelMealReplacement,
+  } = useApp()
   const todayMeals = weekPlan.filter((m) => m.day === 1).sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
   const [expanded, setExpanded] = useState<string | null>(null)
   const [swapMealId, setSwapMealId] = useState<string | null>(null)
+  const [logOpenId, setLogOpenId] = useState<string | null>(null)
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar">
@@ -72,9 +87,36 @@ export default function TodayScreen() {
               return <FreeMealCard key={meal.id} day={meal.day} slot={meal.slot as PlannableSlot} />
             }
 
+            const replacement = mealReplacements[meal.id]
+            if (replacement) {
+              return (
+                <Card key={meal.id} className="!p-3 border-2 border-dashed border-clementine-400 bg-clementine-100/40">
+                  <div className="flex items-start gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-clementine-100 flex items-center justify-center shrink-0">
+                      <UtensilsCrossed size={17} className="text-clementine-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10.5px] font-bold text-clementine-500 uppercase tracking-wide">
+                        {SLOT_LABEL[meal.slot]} · Remplacé
+                      </p>
+                      <p className="font-bold text-ink text-[14px] truncate">{replacement.description}</p>
+                      {replacement.kcal > 0 && <p className="text-[12px] text-ink-soft/60">{replacement.kcal} kcal (estimation)</p>}
+                    </div>
+                    <button
+                      onClick={() => cancelMealReplacement(meal.id)}
+                      className="tap shrink-0 flex items-center gap-1 text-[11px] font-bold text-leaf-600"
+                    >
+                      <RotateCcw size={11} /> Annuler
+                    </button>
+                  </div>
+                </Card>
+              )
+            }
+
             const done = consumedMealIds.includes(meal.id)
             const isOpen = expanded === meal.id
             const isSwapOpen = swapMealId === meal.id
+            const isLogOpen = logOpenId === meal.id
             const fresh = freshnessLabel(meal.freshnessDay)
             const otherDaysSameSlot = weekPlan.filter((m) => m.slot === meal.slot && m.id !== meal.id).sort((a, b) => a.day - b.day)
 
@@ -170,6 +212,8 @@ export default function TodayScreen() {
                   </div>
                 )}
 
+                {isLogOpen && <MealReplacementForm meal={meal} onDone={() => setLogOpenId(null)} />}
+
                 <div className="flex gap-2 mt-3">
                   <Button
                     variant={done ? 'secondary' : 'primary'}
@@ -178,8 +222,23 @@ export default function TodayScreen() {
                   >
                     {done && <Check size={15} />} {done ? 'Repas consommé' : 'Marquer consommé'}
                   </Button>
-                  <Button variant="ghost" className="!py-2.5 text-[13px]" onClick={() => setSwapMealId(isSwapOpen ? null : meal.id)}>
-                    <ArrowLeftRight size={14} /> Remplacement d’urgence
+                  <Button
+                    variant="ghost"
+                    className="!py-2.5 text-[13px] !px-3"
+                    onClick={() => setSwapMealId(isSwapOpen ? null : meal.id)}
+                    aria-label="Remplacement d’urgence"
+                    title="Remplacement d’urgence (échanger avec un autre jour)"
+                  >
+                    <ArrowLeftRight size={14} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="!py-2.5 text-[13px] !px-3"
+                    onClick={() => setLogOpenId(isLogOpen ? null : meal.id)}
+                    aria-label="J’ai mangé autre chose"
+                    title="Je n’ai pas respecté ce repas"
+                  >
+                    <Camera size={14} />
                   </Button>
                 </div>
               </Card>
