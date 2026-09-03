@@ -17,7 +17,7 @@ const SLOT_LABEL: Record<Meal['slot'], string> = {
 const SLOT_ORDER: Meal['slot'][] = ['encas-matin', 'midi', 'encas-apresmidi', 'soir']
 
 export default function MenuStep() {
-  const { weekPlan, replaceMeal, applyPreferences, setCourseStep } = useApp()
+  const { weekPlan, replaceMeal, applyPreferences, setCourseStep, mealNeeds } = useApp()
   const [prefsOpen, setPrefsOpen] = useState(false)
 
   return (
@@ -49,7 +49,12 @@ export default function MenuStep() {
         {WEEK_DAYS.map((dayName, idx) => {
           const dayNum = idx + 1
           const dayMeals = weekPlan
-            .filter((m) => m.day === dayNum && m.slot !== 'petit-dejeuner')
+            .filter((m) => {
+              if (m.slot === 'petit-dejeuner') return false
+              if (m.slot === 'midi') return mealNeeds[dayNum]?.midi ?? true
+              if (m.slot === 'soir') return mealNeeds[dayNum]?.soir ?? true
+              return true
+            })
             .sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
           if (dayMeals.length === 0) return null
 

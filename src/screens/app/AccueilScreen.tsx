@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { Card, SectionTitle } from '../../components/ui'
 import AppointmentBooking from './AppointmentBooking'
+import CompanionPreview from './CompanionPreview'
 
 const FEATURES = [
   {
@@ -39,6 +40,11 @@ export default function AccueilScreen() {
         </div>
 
         <div className="px-5 mt-4">
+          <SectionTitle>Votre compagnon IA</SectionTitle>
+          <CompanionPreview />
+        </div>
+
+        <div className="px-5 mt-6">
           <SectionTitle>À quoi sert l’appli</SectionTitle>
           <div className="flex flex-col gap-3">
             {FEATURES.map(({ icon: Icon, title, description }) => (

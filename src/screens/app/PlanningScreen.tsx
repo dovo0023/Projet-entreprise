@@ -1,9 +1,10 @@
-import { AlertTriangle, ArrowLeftRight, Timer } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, Timer, UtensilsCrossed } from 'lucide-react'
 import { useState } from 'react'
 import { WEEK_DAYS } from '../../data/mock'
 import { useApp } from '../../context/AppContext'
 import { getRecipeTemplate } from '../../engine/planner'
 import { Card, Pill, SectionTitle } from '../../components/ui'
+import FreeMealCard from './FreeMealCard'
 import type { Meal } from '../../types'
 
 const SLOT_ORDER: Meal['slot'][] = ['petit-dejeuner', 'encas-matin', 'midi', 'encas-apresmidi', 'soir']
@@ -31,7 +32,7 @@ function isRiskySwapTarget(meal: Meal, targetDay: number) {
 }
 
 export default function PlanningScreen() {
-  const { weekPlan, swapMeals } = useApp()
+  const { weekPlan, swapMeals, mealNeeds, setDayMealNeed } = useApp()
   const [expandedMealId, setExpandedMealId] = useState<string | null>(null)
 
   return (
@@ -55,26 +56,44 @@ export default function PlanningScreen() {
               </SectionTitle>
               <div className="flex flex-col gap-2.5">
                 {dayMeals.map((meal) => {
+                  const isMidiSoir = meal.slot === 'midi' || meal.slot === 'soir'
+                  const needed = !isMidiSoir || (mealNeeds[meal.day]?.[meal.slot as 'midi' | 'soir'] ?? true)
+                  if (isMidiSoir && !needed) {
+                    return <FreeMealCard key={meal.id} day={meal.day} slot={meal.slot as 'midi' | 'soir'} />
+                  }
+
                   const fresh = freshnessLabel(meal.freshnessDay)
                   const isOpen = expandedMealId === meal.id
                   const otherDaysSameSlot = weekPlan.filter((m) => m.slot === meal.slot && m.id !== meal.id).sort((a, b) => a.day - b.day)
 
                   return (
                     <Card key={meal.id} className="!p-3">
-                      <button className="w-full flex items-center gap-3 text-left" onClick={() => setExpandedMealId(isOpen ? null : meal.id)}>
-                        <div className="w-11 h-11 rounded-xl bg-leaf-50 flex items-center justify-center text-xl shrink-0">{meal.image}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10.5px] font-bold text-leaf-600 uppercase tracking-wide">{SLOT_LABEL[meal.slot]}</p>
-                          <p className="font-bold text-ink text-[13.5px] truncate">{meal.name}</p>
-                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                            <Pill>
-                              <Timer size={10} /> {meal.prepTime} min
-                            </Pill>
-                            <Pill tone={fresh.tone}>{fresh.label}</Pill>
+                      <div className="flex items-center gap-2">
+                        <button className="flex-1 min-w-0 flex items-center gap-3 text-left" onClick={() => setExpandedMealId(isOpen ? null : meal.id)}>
+                          <div className="w-11 h-11 rounded-xl bg-leaf-50 flex items-center justify-center text-xl shrink-0">{meal.image}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10.5px] font-bold text-leaf-600 uppercase tracking-wide">{SLOT_LABEL[meal.slot]}</p>
+                            <p className="font-bold text-ink text-[13.5px] truncate">{meal.name}</p>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <Pill>
+                                <Timer size={10} /> {meal.prepTime} min
+                              </Pill>
+                              <Pill tone={fresh.tone}>{fresh.label}</Pill>
+                            </div>
                           </div>
-                        </div>
-                        <ArrowLeftRight size={15} className="text-ink-soft/40 shrink-0" />
-                      </button>
+                          <ArrowLeftRight size={15} className="text-ink-soft/40 shrink-0" />
+                        </button>
+                        {isMidiSoir && (
+                          <button
+                            onClick={() => setDayMealNeed(meal.day, meal.slot as 'midi' | 'soir', false)}
+                            className="tap shrink-0 w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"
+                            aria-label="Marquer ce repas comme libre"
+                            title="Je ne prépare pas ce repas"
+                          >
+                            <UtensilsCrossed size={13} className="text-ink-soft/50" />
+                          </button>
+                        )}
+                      </div>
 
                       {isOpen && (
                         <div className="mt-3 pt-3 border-t border-black/5 fade-up flex flex-col gap-2.5">

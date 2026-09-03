@@ -2,6 +2,7 @@ import { Clock, Coffee, Flame, Wallet, X } from 'lucide-react'
 import { useApp } from '../../../context/AppContext'
 import { Button } from '../../../components/ui'
 import CookingSessionsFields from './CookingSessionsFields'
+import MealNeedsFields from './MealNeedsFields'
 import type { SnackTiming, TimeBand } from '../../../types'
 
 const TIME_OPTIONS: { value: TimeBand | null; label: string }[] = [
@@ -36,6 +37,7 @@ export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-5 flex flex-col gap-7">
+        <MealNeedsFields />
         <CookingSessionsFields />
 
         <section>

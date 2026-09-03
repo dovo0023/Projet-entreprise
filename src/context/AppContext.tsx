@@ -3,6 +3,7 @@ import type {
   Appointment,
   AppointmentSlot,
   ChatMessage,
+  DayMealNeeds,
   DeliveryMode,
   DietType,
   Goal,
@@ -86,6 +87,7 @@ interface PersistedState {
   kitchenEquipment: KitchenEquipment[]
   cookingIntroSeen: boolean
   constraints: PlannerConstraints
+  mealNeeds: DayMealNeeds
   weekPlan: Meal[]
   consumedMealIds: string[]
   consumed: MacroTargets
@@ -130,9 +132,22 @@ export function computeTargets(p: UserProfile): MacroTargets {
   return { kcal, protein, carbs, fat }
 }
 
-/** Le flux courses (menu → ingrédients → magasin) porte sur les repas de midi, du soir et les encas. */
-function shoppableMeals(plan: Meal[]): Meal[] {
-  return plan.filter((m) => m.slot !== 'petit-dejeuner')
+/** Par défaut, l'app prévoit midi et soir tous les jours (comportement historique, aucune régression). */
+function defaultMealNeeds(): DayMealNeeds {
+  const needs: DayMealNeeds = {}
+  for (let day = 1; day <= 7; day++) needs[day] = { midi: true, soir: true }
+  return needs
+}
+
+/** Le flux courses (menu → ingrédients → magasin) porte sur les repas de midi, du soir et les encas —
+ *  sauf les jours/créneaux marqués "libres" (l'utilisateur mange autre chose, pas besoin de les acheter). */
+function shoppableMeals(plan: Meal[], mealNeeds: DayMealNeeds): Meal[] {
+  return plan.filter((m) => {
+    if (m.slot === 'petit-dejeuner') return false
+    if (m.slot === 'midi') return mealNeeds[m.day]?.midi ?? true
+    if (m.slot === 'soir') return mealNeeds[m.day]?.soir ?? true
+    return true
+  })
 }
 
 function mergeHaveAtHome(newItems: ShoppingItem[], prevItems: ShoppingItem[]): ShoppingItem[] {
@@ -168,6 +183,10 @@ interface AppState {
   constraints: PlannerConstraints
   setConstraints: (c: Partial<PlannerConstraints>) => void
   weekStats: WeekStats
+
+  mealNeeds: DayMealNeeds
+  setMealNeedsForAllDays: (midi: boolean, soir: boolean) => void
+  setDayMealNeed: (day: number, slot: 'midi' | 'soir', needed: boolean) => void
 
   applyPreferences: () => void
 
@@ -212,6 +231,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     persisted?.personalRecords ?? { [SELF_RECORD_ID]: { weightHistory: WEIGHT_HISTORY, adherenceHistory: ADHERENCE_HISTORY, journalEntries: SELF_JOURNAL_ENTRIES } },
   )
   const [constraints, setConstraintsState] = useState<PlannerConstraints>(persisted?.constraints ?? DEFAULT_CONSTRAINTS)
+  const [mealNeeds, setMealNeeds] = useState<DayMealNeeds>(persisted?.mealNeeds ?? defaultMealNeeds())
   const [kitchenEquipment, setKitchenEquipmentState] = useState<KitchenEquipment[]>(persisted?.kitchenEquipment ?? DEFAULT_KITCHEN_EQUIPMENT)
   const [cookingIntroSeen, setCookingIntroSeen] = useState(persisted?.cookingIntroSeen ?? false)
 
@@ -220,10 +240,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const requiredDiet = useMemo(() => mostRestrictiveDiet(profile, householdMembers), [profile, householdMembers])
 
   const [initial] = useState(() => {
+    const baseMealNeeds = persisted?.mealNeeds ?? defaultMealNeeds()
     if (persisted?.weekPlan?.length) {
       return {
         plan: persisted.weekPlan,
-        shoppingList: persisted.shoppingList ?? consolidateIngredients(shoppableMeals(persisted.weekPlan)),
+        shoppingList: persisted.shoppingList ?? consolidateIngredients(shoppableMeals(persisted.weekPlan, baseMealNeeds)),
         consumedMealIds: persisted.consumedMealIds ?? [],
         consumed: persisted.consumed ?? { kcal: 0, protein: 0, carbs: 0, fat: 0 },
       }
@@ -242,7 +263,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const breakfast = plan.find((m) => m.day === 1 && m.slot === 'petit-dejeuner')
     return {
       plan,
-      shoppingList: consolidateIngredients(shoppableMeals(plan)),
+      shoppingList: consolidateIngredients(shoppableMeals(plan, baseMealNeeds)),
       consumedMealIds: breakfast ? [breakfast.id] : [],
       consumed: breakfast
         ? { kcal: breakfast.kcal, protein: breakfast.protein, carbs: breakfast.carbs, fat: breakfast.fat }
@@ -276,6 +297,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         kitchenEquipment,
         cookingIntroSeen,
         constraints,
+        mealNeeds,
         weekPlan,
         consumedMealIds,
         consumed,
@@ -299,6 +321,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     kitchenEquipment,
     cookingIntroSeen,
     constraints,
+    mealNeeds,
     weekPlan,
     consumedMealIds,
     consumed,
@@ -404,10 +427,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWeekPlan(plan)
     setConsumedMealIds([])
     setConsumed({ kcal: 0, protein: 0, carbs: 0, fat: 0 })
-    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(plan)), prev))
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(plan, mealNeeds)), prev))
     setChosenStoreId(null)
     setChosenDeliveryMode(null)
     setOrderPlaced(false)
+  }
+
+  /** Réglage global "combien de repas prévoir cette semaine" (questionnaire Courses / panneau Préférences) :
+   *  s'applique aux 7 jours d'un coup. Un ajustement plus fin, jour par jour, se fait ensuite depuis Planning. */
+  function setMealNeedsForAllDays(midi: boolean, soir: boolean) {
+    const next: DayMealNeeds = {}
+    for (let day = 1; day <= 7; day++) next[day] = { midi, soir }
+    setMealNeeds(next)
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(weekPlan, next)), prev))
+  }
+
+  /** Bascule un jour/créneau précis entre "repas prévu par l'app" et "repas libre" (Planning/Aujourd'hui). */
+  function setDayMealNeed(day: number, slot: 'midi' | 'soir', needed: boolean) {
+    const next: DayMealNeeds = { ...mealNeeds, [day]: { midi: mealNeeds[day]?.midi ?? true, soir: mealNeeds[day]?.soir ?? true, [slot]: needed } }
+    setMealNeeds(next)
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(weekPlan, next)), prev))
   }
 
   /** Changer l'équipement disponible régénère le menu comme un changement de foyer : c'est un filtre dur. */
@@ -429,7 +468,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const breakfast = plan.find((m) => m.day === 1 && m.slot === 'petit-dejeuner')
     setConsumedMealIds(breakfast ? [breakfast.id] : [])
     setConsumed(breakfast ? { kcal: breakfast.kcal, protein: breakfast.protein, carbs: breakfast.carbs, fat: breakfast.fat } : { kcal: 0, protein: 0, carbs: 0, fat: 0 })
-    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(plan)), prev))
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(plan, mealNeeds)), prev))
     setCourseStep('menu')
     setOrderPlaced(false)
   }
@@ -449,7 +488,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const newPlan = replaceMealInPlan(weekPlan, mealId, targets, constraints, householdAllergens, requiredDiet, kitchenEquipment)
     setWeekPlan(newPlan)
     subtractIfConsumed(old, mealId)
-    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan)), prev))
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan, mealNeeds)), prev))
   }
 
   function mealAlternatives(mealId: string, count = 3): RecipeTemplate[] {
@@ -461,7 +500,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const newPlan = applyMealChoice(weekPlan, mealId, recipeId)
     setWeekPlan(newPlan)
     subtractIfConsumed(old, mealId)
-    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan)), prev))
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan, mealNeeds)), prev))
   }
 
   function swapMeals(mealIdA: string, mealIdB: string) {
@@ -471,7 +510,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWeekPlan(newPlan)
     subtractIfConsumed(a, mealIdA)
     subtractIfConsumed(b, mealIdB)
-    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan)), prev))
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan, mealNeeds)), prev))
   }
 
   function subtractIfConsumed(old: Meal | undefined, mealId: string) {
@@ -561,6 +600,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         constraints,
         setConstraints,
         weekStats,
+        mealNeeds,
+        setMealNeedsForAllDays,
+        setDayMealNeed,
         applyPreferences,
         courseStep,
         setCourseStep,

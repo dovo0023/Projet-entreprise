@@ -2,6 +2,7 @@ import { Sparkles } from 'lucide-react'
 import { useApp } from '../../../context/AppContext'
 import { Button } from '../../../components/ui'
 import CookingSessionsFields from './CookingSessionsFields'
+import MealNeedsFields from './MealNeedsFields'
 
 /** Questionnaire affiché une seule fois, au tout premier passage dans l'onglet Courses : on adapte le
  *  menu (et donc la liste de courses) au rythme de cuisine réel plutôt qu'à un plat différent chaque jour. */
@@ -27,6 +28,7 @@ export default function CookingIntroScreen() {
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-4 flex flex-col gap-7">
+        <MealNeedsFields />
         <CookingSessionsFields />
       </div>
 
