@@ -8,7 +8,6 @@ import AccueilScreen from './screens/app/AccueilScreen'
 import HouseholdScreen from './screens/app/HouseholdScreen'
 import PlanningScreen from './screens/app/PlanningScreen'
 import ProfileScreen from './screens/app/ProfileScreen'
-import ProgressScreen from './screens/app/ProgressScreen'
 import ShoppingScreen from './screens/app/ShoppingScreen'
 import SubscriptionScreen from './screens/app/SubscriptionScreen'
 import TodayScreen from './screens/app/TodayScreen'
@@ -26,7 +25,6 @@ export default function ConsumerApp() {
           <Route path="planning" element={<PlanningScreen />} />
           <Route path="today" element={<TodayScreen />} />
           <Route path="shopping" element={<ShoppingScreen />} />
-          <Route path="progress" element={<ProgressScreen />} />
           <Route path="household" element={<HouseholdScreen />} />
           <Route path="home" element={<AccueilScreen />} />
         </Route>

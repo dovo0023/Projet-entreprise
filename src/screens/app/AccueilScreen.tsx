@@ -1,4 +1,4 @@
-import { Calendar, CalendarDays, ChevronRight, Sparkles, TrendingUp, Users } from 'lucide-react'
+import { Calendar, CalendarDays, ChevronRight, Sparkles, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { Card, SectionTitle } from '../../components/ui'
@@ -18,12 +18,8 @@ const FEATURES = [
   {
     icon: Users,
     title: 'Foyer',
-    description: 'Ajoutez les autres personnes de la maison : chacune son objectif, son régime et ses allergies.',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Progression',
-    description: 'Poids, observance et journal alimentaire, par personne — pour vous et pour votre diététicien.',
+    description:
+      'Ajoutez les autres personnes de la maison (objectif, régime, allergies) et suivez la progression de chacun — poids, observance et journal alimentaire.',
   },
 ]
 

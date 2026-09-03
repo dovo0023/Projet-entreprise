@@ -4,7 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { ALLERGEN_OPTIONS } from '../../data/mock'
 import { Button, Card, SectionTitle } from '../../components/ui'
+import HouseholdProgress from './HouseholdProgress'
 import type { DietType, Goal, HouseholdMember, KitchenEquipment } from '../../types'
+
+type HouseholdView = 'membres' | 'progression'
 
 const GOAL_OPTIONS: { value: Goal; label: string }[] = [
   { value: 'seche', label: 'Perte de gras / Sèche' },
@@ -146,6 +149,7 @@ export default function HouseholdScreen() {
     kitchenEquipment,
     setKitchenEquipment,
   } = useApp()
+  const [view, setView] = useState<HouseholdView>('membres')
   const [adding, setAdding] = useState(false)
   const [addForm, setAddForm] = useState<MemberFormValue>(EMPTY_FORM)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -198,7 +202,30 @@ export default function HouseholdScreen() {
         <h1 className="text-[16px] font-extrabold text-ink">Mon foyer</h1>
       </div>
 
+      <div className="px-5 pb-3 shrink-0 flex gap-2">
+        <button
+          onClick={() => setView('membres')}
+          className={`tap flex-1 py-2.5 rounded-2xl text-[13px] font-bold border ${
+            view === 'membres' ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
+          }`}
+        >
+          Membres
+        </button>
+        <button
+          onClick={() => setView('progression')}
+          className={`tap flex-1 py-2.5 rounded-2xl text-[13px] font-bold border ${
+            view === 'progression' ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
+          }`}
+        >
+          Progression
+        </button>
+      </div>
+
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-8">
+        {view === 'progression' ? (
+          <HouseholdProgress />
+        ) : (
+          <>
         <p className="text-[13px] text-ink-soft mb-4">
           Ajoutez les personnes de votre foyer qui partagent vos repas, avec leur propre objectif, régime alimentaire et allergies.
           Le menu de la semaine est généré pour convenir à tout le monde à la fois.
@@ -345,6 +372,8 @@ export default function HouseholdScreen() {
             )
           })}
         </Card>
+          </>
+        )}
       </div>
     </div>
   )
