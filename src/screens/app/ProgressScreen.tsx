@@ -1,9 +1,8 @@
-import { Book, Calendar, Check, ChevronRight, Copy, MessageCircle, Plus, Scale, Send, Trash2, TrendingDown, TrendingUp, X } from 'lucide-react'
+import { Book, Check, Copy, MessageCircle, Plus, Scale, Send, Trash2, TrendingDown, TrendingUp, X } from 'lucide-react'
 import { useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { PATIENT_SHARE_CODE, SELF_RECORD_ID, useApp } from '../../context/AppContext'
 import { Button, Card, SectionTitle } from '../../components/ui'
-import AppointmentBooking from './AppointmentBooking'
 import type { JournalSlot } from '../../types'
 
 const JOURNAL_SLOT_OPTIONS: { value: JournalSlot; label: string }[] = [
@@ -23,9 +22,7 @@ const JOURNAL_SLOT_LABEL: Record<JournalSlot, string> = {
 }
 
 export default function ProgressScreen() {
-  const { profile, householdMembers, personalRecords, logWeight, addJournalEntry, removeJournalEntry, messages, sendMessage, appointments } =
-    useApp()
-  const [bookingOpen, setBookingOpen] = useState(false)
+  const { profile, householdMembers, personalRecords, logWeight, addJournalEntry, removeJournalEntry, messages, sendMessage } = useApp()
   const people = [{ id: SELF_RECORD_ID, name: profile.firstName }, ...householdMembers.map((m) => ({ id: m.id, name: m.name }))]
   const [selectedId, setSelectedId] = useState(SELF_RECORD_ID)
   const selectedPerson = people.find((p) => p.id === selectedId) ?? people[0]
@@ -104,8 +101,7 @@ export default function ProgressScreen() {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden relative">
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+    <div className="flex-1 overflow-y-auto no-scrollbar">
       <div className="px-5 pt-5 pb-2">
         <h1 className="text-xl font-extrabold text-ink">Progression & santé</h1>
         <p className="text-[13px] text-ink-soft">{subtitle}</p>
@@ -297,35 +293,6 @@ export default function ProgressScreen() {
         </Card>
       </div>
 
-      <div className="px-5 mt-6">
-        <SectionTitle>Rendez-vous</SectionTitle>
-        <Card className="flex flex-col gap-3">
-          {appointments.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              {appointments.map((a) => (
-                <div key={a.id} className="flex items-center gap-3 bg-black/[0.03] rounded-2xl px-3.5 py-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0">
-                    <Calendar size={15} className="text-leaf-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-ink text-[13.5px] truncate">{a.practitionerName}</p>
-                    <p className="text-[12px] text-ink-soft/60">
-                      {a.dayLabel} à {a.time}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-[12.5px] text-ink-soft/50 italic">Aucun rendez-vous programmé pour l’instant.</p>
-          )}
-          <button onClick={() => setBookingOpen(true)} className="tap w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-black/5">
-            <span className="text-[13px] font-bold text-ink">Trouver un(e) diététicien(ne) près de chez moi</span>
-            <ChevronRight size={15} className="text-ink-soft/50 shrink-0" />
-          </button>
-        </Card>
-      </div>
-
       <div className="px-5 mt-6 pb-8">
         <SectionTitle>Espace praticien</SectionTitle>
         <Card className="flex flex-col gap-3">
@@ -391,9 +358,6 @@ export default function ProgressScreen() {
           </div>
         </Card>
       </div>
-      </div>
-
-      {bookingOpen && <AppointmentBooking onClose={() => setBookingOpen(false)} />}
     </div>
   )
 }

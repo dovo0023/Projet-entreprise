@@ -1,10 +1,11 @@
-import { CalendarDays, ShoppingBasket, Sparkles, TrendingUp, Users } from 'lucide-react'
+import { CalendarDays, Home, ShoppingBasket, Sparkles, TrendingUp, Users } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 const TABS = [
+  { to: '/app/today', label: 'Aujourd’hui', icon: Sparkles },
   { to: '/app/planning', label: 'Planning', icon: CalendarDays },
   { to: '/app/shopping', label: 'Courses', icon: ShoppingBasket },
-  { to: '/app/today', label: 'Aujourd’hui', icon: Sparkles },
+  { to: '/app/home', label: 'Accueil', icon: Home },
   { to: '/app/progress', label: 'Progression', icon: TrendingUp },
   { to: '/app/household', label: 'Foyer', icon: Users },
 ]

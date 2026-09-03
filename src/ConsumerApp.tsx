@@ -4,6 +4,7 @@ import AppLayout from './layouts/AppLayout'
 import Login from './screens/Login'
 import Onboarding from './screens/Onboarding'
 import Welcome from './screens/Welcome'
+import AccueilScreen from './screens/app/AccueilScreen'
 import HouseholdScreen from './screens/app/HouseholdScreen'
 import PlanningScreen from './screens/app/PlanningScreen'
 import ProfileScreen from './screens/app/ProfileScreen'
@@ -27,6 +28,7 @@ export default function ConsumerApp() {
           <Route path="shopping" element={<ShoppingScreen />} />
           <Route path="progress" element={<ProgressScreen />} />
           <Route path="household" element={<HouseholdScreen />} />
+          <Route path="home" element={<AccueilScreen />} />
         </Route>
 
         <Route path="/app/profile" element={<ProfileScreen />} />
