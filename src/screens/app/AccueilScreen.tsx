@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { Card, SectionTitle } from '../../components/ui'
 import AppointmentBooking from './AppointmentBooking'
-import CompanionPreview from './CompanionPreview'
+import AssistanceChat from './AssistanceChat'
 
 const FEATURES = [
   {
@@ -40,11 +40,6 @@ export default function AccueilScreen() {
         </div>
 
         <div className="px-5 mt-4">
-          <SectionTitle>Votre compagnon IA</SectionTitle>
-          <CompanionPreview />
-        </div>
-
-        <div className="px-5 mt-6">
           <SectionTitle>À quoi sert l’appli</SectionTitle>
           <div className="flex flex-col gap-3">
             {FEATURES.map(({ icon: Icon, title, description }) => (
@@ -61,7 +56,7 @@ export default function AccueilScreen() {
           </div>
         </div>
 
-        <div className="px-5 mt-6 pb-8">
+        <div className="px-5 mt-6">
           <SectionTitle>Un accompagnement professionnel</SectionTitle>
           <Card className="flex flex-col gap-3">
             <p className="text-[13px] text-ink-soft">
@@ -93,6 +88,11 @@ export default function AccueilScreen() {
               <ChevronRight size={15} className="text-ink-soft/50 shrink-0" />
             </button>
           </Card>
+        </div>
+
+        <div className="px-5 mt-6 pb-8">
+          <SectionTitle>Besoin d’aide ?</SectionTitle>
+          <AssistanceChat />
         </div>
       </div>
 
