@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeftRight, Timer, UtensilsCrossed } from 'lucide-react'
+import { AlertTriangle, Archive, ArrowLeftRight, Timer, Trash2, UtensilsCrossed } from 'lucide-react'
 import { useState } from 'react'
 import { WEEK_DAYS } from '../../data/mock'
 import { useApp } from '../../context/AppContext'
@@ -38,7 +38,7 @@ function mealNeedKey(slot: PlannableSlot): 'matin' | 'midi' | 'soir' {
 }
 
 export default function PlanningScreen() {
-  const { weekPlan, swapMeals, mealNeeds, setDayMealNeed } = useApp()
+  const { weekPlan, swapMeals, mealNeeds, freeMealToReserve, mealReserve, discardReserveMeal } = useApp()
   const [expandedMealId, setExpandedMealId] = useState<string | null>(null)
 
   return (
@@ -49,6 +49,44 @@ export default function PlanningScreen() {
           <p className="text-[13px] text-ink-soft">Vue calendrier de vos 7 jours</p>
         </div>
       </div>
+
+      {mealReserve.length > 0 && (
+        <div className="px-5 mt-4">
+          <SectionTitle>
+            <span className="flex items-center gap-1.5">
+              <Archive size={13} /> Repas en réserve
+            </span>
+          </SectionTitle>
+          <div className="flex flex-col gap-2 mb-2">
+            {mealReserve.map((meal) => {
+              const fresh = freshnessLabel(meal.freshnessDay)
+              return (
+                <Card key={meal.id} className="!p-3 flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-leaf-50 flex items-center justify-center text-xl shrink-0">{meal.image}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10.5px] font-bold text-leaf-600 uppercase tracking-wide">{SLOT_LABEL[meal.slot]}</p>
+                    <p className="font-bold text-ink text-[13.5px] truncate">{meal.name}</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Pill tone={fresh.tone}>{fresh.label}</Pill>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => discardReserveMeal(meal.id)}
+                    className="tap w-9 h-9 rounded-full bg-black/5 flex items-center justify-center shrink-0"
+                    aria-label="Retirer de la réserve"
+                    title="Je ne le consommerai pas"
+                  >
+                    <Trash2 size={14} className="text-ink-soft/60" />
+                  </button>
+                </Card>
+              )
+            })}
+          </div>
+          <p className="text-[11.5px] text-ink-soft/50 mb-2">
+            Placez un repas en réserve sur un jour libre depuis "Échanger", ou retirez-le s'il ne sera pas consommé.
+          </p>
+        </div>
+      )}
 
       <div className="px-5 mt-6 flex flex-col gap-6 pb-8">
         {WEEK_DAYS.map((dayName, idx) => {
@@ -91,7 +129,7 @@ export default function PlanningScreen() {
                         </button>
                         {isPlannable && (
                           <button
-                            onClick={() => setDayMealNeed(meal.day, meal.slot as PlannableSlot, false)}
+                            onClick={() => freeMealToReserve(meal)}
                             className="tap shrink-0 w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"
                             aria-label="Marquer ce repas comme libre"
                             title="Je ne prépare pas ce repas"

@@ -10,14 +10,16 @@ import SlotsField, { type SlotsValue } from './SlotsField'
  *  compte se faire à manger, puis les repas (matin/midi/soir) à prévoir pour ces jours-là — au lieu d'un
  *  réglage figé une fois pour toutes, facile à oublier. */
 export default function CoursesIntroWizard({ onDone }: { onDone: () => void }) {
-  const { mealNeeds, applyDaySlotSelection, applyPreferences } = useApp()
+  const { mealNeeds, applyDaySlotSelection } = useApp()
   const [step, setStep] = useState<'days' | 'slots'>('days')
   const [days, setDays] = useState<number[]>(() => aggregateDays(mealNeeds))
   const [slots, setSlots] = useState<SlotsValue>(() => aggregateSlots(mealNeeds))
 
   function validate() {
+    // Changer "quels jours / quels repas" ne change pas les recettes elles-mêmes (generateWeekPlan ne
+    // dépend pas de mealNeeds) : pas besoin de régénérer le menu, juste de recalculer la grille jour ×
+    // créneau et la liste de courses en conséquence.
     applyDaySlotSelection(days, slots)
-    applyPreferences()
     onDone()
   }
 

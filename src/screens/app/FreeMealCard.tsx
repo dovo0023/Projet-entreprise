@@ -1,7 +1,7 @@
-import { ArrowLeftRight, Camera, Check, Loader2, Trash2, UtensilsCrossed } from 'lucide-react'
+import { Archive, ArrowLeftRight, Camera, Check, Loader2, Trash2, UtensilsCrossed } from 'lucide-react'
 import { useRef, useState, type ChangeEvent } from 'react'
 import { SELF_RECORD_ID, useApp } from '../../context/AppContext'
-import { Card } from '../../components/ui'
+import { Card, Pill } from '../../components/ui'
 import { WEEK_DAYS } from '../../data/mock'
 import type { PlannableSlot } from '../../types'
 
@@ -21,7 +21,8 @@ const MOCK_PHOTO_GUESSES: Record<PlannableSlot, string[]> = {
  *  Pour redevenir "prévu", on échange avec un autre jour qui a réellement un repas acheté — pas un simple
  *  retour en arrière, qui ferait apparaître une recette jamais incluse dans la liste de courses. */
 export default function FreeMealCard({ day, slot }: { day: number; slot: PlannableSlot }) {
-  const { personalRecords, addJournalEntry, removeJournalEntry, mealNeeds, weekPlan, swapFreeMealWithDay } = useApp()
+  const { personalRecords, addJournalEntry, removeJournalEntry, mealNeeds, weekPlan, swapFreeMealWithDay, mealReserve, assignReserveMealToDay } =
+    useApp()
   const entries = (personalRecords[SELF_RECORD_ID]?.journalEntries ?? []).filter((e) => e.day === day && e.slot === slot)
   const [description, setDescription] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
@@ -30,6 +31,7 @@ export default function FreeMealCard({ day, slot }: { day: number; slot: Plannab
 
   const needKey = slot === 'petit-dejeuner' ? 'matin' : slot
   const candidateDays = Array.from({ length: 7 }, (_, i) => i + 1).filter((d) => d !== day && (mealNeeds[d]?.[needKey] ?? true))
+  const reserveCandidates = mealReserve.filter((m) => m.slot === slot)
 
   function mealNameFor(otherDay: number) {
     return weekPlan.find((m) => m.day === otherDay && m.slot === slot)?.name ?? ''
@@ -72,24 +74,50 @@ export default function FreeMealCard({ day, slot }: { day: number; slot: Plannab
       </div>
 
       {swapOpen && (
-        <div className="mb-2.5 flex flex-col gap-1.5">
-          <p className="text-[11px] font-bold text-ink-soft/60 uppercase">Échanger avec un jour prévu</p>
-          {candidateDays.length === 0 ? (
-            <p className="text-[12px] text-ink-soft/50 italic">Aucun autre repas prévu à échanger cette semaine.</p>
+        <div className="mb-2.5 flex flex-col gap-2.5">
+          {candidateDays.length === 0 && reserveCandidates.length === 0 ? (
+            <p className="text-[12px] text-ink-soft/50 italic">Aucun repas à échanger ou en réserve pour l’instant.</p>
           ) : (
-            candidateDays.map((d) => (
-              <button
-                key={d}
-                onClick={() => {
-                  swapFreeMealWithDay(day, slot, d)
-                  setSwapOpen(false)
-                }}
-                className="tap flex items-center gap-2.5 bg-white rounded-xl px-3 py-2 text-left"
-              >
-                <span className="text-[11px] font-bold text-ink-soft/60 w-16 shrink-0">{WEEK_DAYS[d - 1]}</span>
-                <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-ink truncate">{mealNameFor(d)}</span>
-              </button>
-            ))
+            <>
+              {candidateDays.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-[11px] font-bold text-ink-soft/60 uppercase">Échanger avec un jour prévu</p>
+                  {candidateDays.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => {
+                        swapFreeMealWithDay(day, slot, d)
+                        setSwapOpen(false)
+                      }}
+                      className="tap flex items-center gap-2.5 bg-white rounded-xl px-3 py-2 text-left"
+                    >
+                      <span className="text-[11px] font-bold text-ink-soft/60 w-16 shrink-0">{WEEK_DAYS[d - 1]}</span>
+                      <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-ink truncate">{mealNameFor(d)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {reserveCandidates.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-[11px] font-bold text-ink-soft/60 uppercase flex items-center gap-1">
+                    <Archive size={11} /> En réserve
+                  </p>
+                  {reserveCandidates.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        assignReserveMealToDay(m.id, day)
+                        setSwapOpen(false)
+                      }}
+                      className="tap flex items-center gap-2.5 bg-white rounded-xl px-3 py-2 text-left"
+                    >
+                      <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-ink truncate">{m.name}</span>
+                      <Pill tone="clementine">DLC J{m.freshnessDay}</Pill>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

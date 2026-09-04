@@ -50,7 +50,7 @@ export default function TodayScreen() {
     profile,
     householdMembers,
     mealNeeds,
-    setDayMealNeed,
+    freeMealToReserve,
     mealReplacements,
     cancelMealReplacement,
   } = useApp()
@@ -150,7 +150,7 @@ export default function TodayScreen() {
                   </button>
                   {isPlannable && (
                     <button
-                      onClick={() => setDayMealNeed(meal.day, meal.slot as PlannableSlot, false)}
+                      onClick={() => freeMealToReserve(meal)}
                       className="tap shrink-0 w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"
                       aria-label="Marquer ce repas comme libre"
                       title="Je ne prépare pas ce repas"

@@ -436,6 +436,14 @@ export function getRecipeTemplate(mealId: string): RecipeTemplate | undefined {
   return RECIPE_POOL.find((r) => r.id === recipeIdFromMealId(mealId))
 }
 
+/** Réattribue un repas déjà acheté (repas en réserve) à un nouveau jour : la date limite de fraîcheur est
+ *  recalculée par rapport à ce nouveau jour, comme pour une permutation classique entre deux jours. */
+export function relocateMeal(meal: Meal, newDay: number): Meal {
+  const recipe = getRecipeTemplate(meal.id)
+  if (!recipe) return { ...meal, day: newDay }
+  return toMeal(recipe, newDay, meal.slot)
+}
+
 /** Classe les recettes candidates pour le créneau d'un repas donné, meilleure en premier. */
 function rankAlternatives(
   plan: Meal[],

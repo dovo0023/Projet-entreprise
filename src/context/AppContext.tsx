@@ -29,6 +29,7 @@ import {
   getMealAlternatives,
   mostRestrictiveDiet,
   RECIPE_COST_MAP,
+  relocateMeal,
   replaceMealInPlan,
   swapMealsBetweenDays,
   type WeekStats,
@@ -97,6 +98,7 @@ interface PersistedState {
   consumedMealIds: string[]
   consumed: MacroTargets
   mealReplacements: MealReplacements
+  mealReserve: Meal[]
   shoppingList: ShoppingItem[]
   messages: ChatMessage[]
   courseStep: CourseStep
@@ -196,8 +198,12 @@ interface AppState {
 
   mealNeeds: DayMealNeeds
   applyDaySlotSelection: (days: number[], slots: { matin: boolean; midi: boolean; soir: boolean }) => void
-  setDayMealNeed: (day: number, slot: PlannableSlot, needed: boolean) => void
   swapFreeMealWithDay: (freeDay: number, slot: PlannableSlot, targetDay: number) => void
+
+  mealReserve: Meal[]
+  freeMealToReserve: (meal: Meal) => void
+  assignReserveMealToDay: (reserveMealId: string, day: number) => void
+  discardReserveMeal: (reserveMealId: string) => void
 
   applyPreferences: () => void
 
@@ -289,6 +295,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [consumedMealIds, setConsumedMealIds] = useState<string[]>(initial.consumedMealIds)
   const [consumed, setConsumed] = useState<MacroTargets>(initial.consumed)
   const [mealReplacements, setMealReplacements] = useState<MealReplacements>(persisted?.mealReplacements ?? {})
+  const [mealReserve, setMealReserve] = useState<Meal[]>(persisted?.mealReserve ?? [])
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(initial.shoppingList)
   const [messages, setMessages] = useState<ChatMessage[]>(persisted?.messages ?? DEFAULT_MESSAGES)
   const [appointments, setAppointments] = useState<Appointment[]>(persisted?.appointments ?? [])
@@ -316,6 +323,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         consumedMealIds,
         consumed,
         mealReplacements,
+        mealReserve,
         shoppingList,
         messages,
         courseStep,
@@ -340,6 +348,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     consumedMealIds,
     consumed,
     mealReplacements,
+    mealReserve,
     shoppingList,
     messages,
     courseStep,
@@ -461,13 +470,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(weekPlan, next)), prev))
   }
 
-  /** Bascule un jour/créneau précis entre "repas prévu par l'app" et "repas libre" (Planning/Aujourd'hui). */
-  function setDayMealNeed(day: number, slot: PlannableSlot, needed: boolean) {
-    const current = mealNeeds[day] ?? { matin: true, midi: true, soir: true }
-    const key = slot === 'petit-dejeuner' ? 'matin' : slot
-    const next: DayMealNeeds = { ...mealNeeds, [day]: { ...current, [key]: needed } }
+  /** Marque un repas prévu comme "libre" (Planning/Aujourd'hui) : son ingrédients ont déjà pu être achetés,
+   *  donc la liste de courses n'est volontairement PAS recalculée ici — seul l'assistant Courses/Préférences
+   *  (avant les courses) doit y toucher. Le repas part dans la réserve pour pouvoir être replacé sur un
+   *  autre jour plus tard (voir `assignReserveMealToDay`) plutôt que de simplement disparaître. */
+  function freeMealToReserve(meal: Meal) {
+    const key = meal.slot === 'petit-dejeuner' ? 'matin' : (meal.slot as 'midi' | 'soir')
+    const current = mealNeeds[meal.day] ?? { matin: true, midi: true, soir: true }
+    const next: DayMealNeeds = { ...mealNeeds, [meal.day]: { ...current, [key]: false } }
     setMealNeeds(next)
-    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(weekPlan, next)), prev))
+    setMealReserve((prev) => [...prev, meal])
+    subtractIfConsumed(meal, meal.id)
+  }
+
+  /** Place un repas de la réserve sur un jour donné (libre, ou déjà prévu). S'il y avait déjà un vrai repas
+   *  prévu ce jour-là, celui-ci rejoint à son tour la réserve (chaises musicales, jamais bloquant même si
+   *  toute la semaine était déjà prévue) ; si le jour était libre, son repas fantôme (jamais acheté, hérité
+   *  de la génération initiale) est simplement écrasé sans rejoindre la réserve. Pas de recalcul de la liste
+   *  de courses : on ne fait que réattribuer des repas déjà achetés à un autre jour. */
+  function assignReserveMealToDay(reserveMealId: string, day: number) {
+    const reserved = mealReserve.find((m) => m.id === reserveMealId)
+    if (!reserved) return
+    const slot = reserved.slot
+    const key = slot === 'petit-dejeuner' ? 'matin' : (slot as 'midi' | 'soir')
+    const wasPlanned = mealNeeds[day]?.[key] ?? true
+    const displaced = wasPlanned ? weekPlan.find((m) => m.day === day && m.slot === slot) : undefined
+    const placedMeal = relocateMeal(reserved, day)
+    const newPlan = weekPlan.map((m) => (m.day === day && m.slot === slot ? placedMeal : m))
+    if (displaced) subtractIfConsumed(displaced, displaced.id)
+    const next: DayMealNeeds = { ...mealNeeds, [day]: { ...(mealNeeds[day] ?? { matin: true, midi: true, soir: true }), [key]: true } }
+    setWeekPlan(newPlan)
+    setMealNeeds(next)
+    setMealReserve((prev) => {
+      const withoutPlaced = prev.filter((m) => m.id !== reserveMealId)
+      return displaced ? [...withoutPlaced, displaced] : withoutPlaced
+    })
+  }
+
+  /** Retire définitivement un repas de la réserve (ex. trop vieux pour être consommé sans risque). */
+  function discardReserveMeal(reserveMealId: string) {
+    setMealReserve((prev) => prev.filter((m) => m.id !== reserveMealId))
   }
 
   /** Changer l'équipement disponible régénère le menu comme un changement de foyer : c'est un filtre dur. */
@@ -681,7 +723,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         weekStats,
         mealNeeds,
         applyDaySlotSelection,
-        setDayMealNeed,
+        mealReserve,
+        freeMealToReserve,
+        assignReserveMealToDay,
+        discardReserveMeal,
         swapFreeMealWithDay,
         applyPreferences,
         courseStep,
