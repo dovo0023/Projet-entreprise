@@ -7,8 +7,13 @@ const PLANS: { name: UserProfile['plan']; price: string; features: string[]; hig
   { name: 'Gratuit', price: '0 €', features: ['Calcul BMR / DEJ', 'Socle allergènes illimité', '3 recettes / semaine'] },
   {
     name: 'Starter',
-    price: '7,99 €/mois',
-    features: ['Planning 7 jours complet', 'Liste de courses consolidée', 'Filtres temps & macros'],
+    price: '4,99 €/mois (39 €/an)',
+    features: [
+      'Planning complet sur 7 jours (contre 3 jours en Gratuit)',
+      'Liste de courses de toute la semaine',
+      'Allergies, intolérances & préférences illimitées',
+      'Calcul métabolique (BMR/TDEE) inclus',
+    ],
   },
   {
     name: 'Pro',
