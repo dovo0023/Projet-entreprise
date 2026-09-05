@@ -4,9 +4,8 @@ import { useApp } from '../../../context/AppContext'
 import { Button } from '../../../components/ui'
 import CookingSessionsFields from './CookingSessionsFields'
 import DaySlotsGrid from './DaySlotsGrid'
-import DaysField from './DaysField'
 import EncasField from './EncasField'
-import { aggregateDays, initSlotsByDay } from './mealNeedsUtils'
+import { toSlotsByDay } from './mealNeedsUtils'
 import type { SlotsValue } from './SlotsField'
 import type { TimeBand } from '../../../types'
 
@@ -20,11 +19,10 @@ const TIME_OPTIONS: { value: TimeBand | null; label: string }[] = [
 export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
   const { constraints, setConstraints, applyPreferences, mealNeeds, applyDaySlotSelection } = useApp()
   const budgetActive = constraints.weeklyBudget != null
-  const days = useMemo(() => aggregateDays(mealNeeds), [mealNeeds])
-  const slotsByDay = useMemo(() => initSlotsByDay(mealNeeds), [mealNeeds])
+  const slotsByDay = useMemo(() => toSlotsByDay(mealNeeds), [mealNeeds])
 
   function toggleSlot(day: number, key: keyof SlotsValue) {
-    applyDaySlotSelection(days, { ...slotsByDay, [day]: { ...slotsByDay[day], [key]: !slotsByDay[day][key] } })
+    applyDaySlotSelection({ ...slotsByDay, [day]: { ...slotsByDay[day], [key]: !slotsByDay[day][key] } })
   }
 
   function apply() {
@@ -42,8 +40,7 @@ export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-5 flex flex-col gap-7">
-        <DaysField days={days} onChange={(next) => applyDaySlotSelection(next, slotsByDay)} />
-        <DaySlotsGrid days={days} value={slotsByDay} onToggle={toggleSlot} />
+        <DaySlotsGrid value={slotsByDay} onToggle={toggleSlot} />
         <EncasField />
         <CookingSessionsFields />
 

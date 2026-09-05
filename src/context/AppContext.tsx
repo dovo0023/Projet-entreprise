@@ -197,7 +197,7 @@ interface AppState {
   weekStats: WeekStats
 
   mealNeeds: DayMealNeeds
-  applyDaySlotSelection: (days: number[], slotsByDay: Record<number, { matin: boolean; midi: boolean; soir: boolean }>) => void
+  applyDaySlotSelection: (slotsByDay: Record<number, { matin: boolean; midi: boolean; soir: boolean }>) => void
   swapFreeMealWithDay: (freeDay: number, slot: PlannableSlot, targetDay: number) => void
 
   mealReserve: Meal[]
@@ -457,16 +457,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setOrderPlaced(false)
   }
 
-  /** Réglage "jours à prévoir" × "repas à prévoir, jour par jour" (assistant Courses en 2 étapes / panneau
-   *  Préférences) : recalcule la grille jour × créneau à partir des jours sélectionnés et, pour chacun, de
-   *  ses propres repas à prévoir (ex. mardi peut n'avoir que midi et soir). Un ajustement encore plus fin,
-   *  repas par repas en cours de semaine, se fait ensuite depuis Planning ou Aujourd'hui (bascule "repas libre"). */
-  function applyDaySlotSelection(days: number[], slotsByDay: Record<number, { matin: boolean; midi: boolean; soir: boolean }>) {
+  /** Réglage "repas à prévoir, jour par jour" (assistant Courses / panneau Préférences) : recalcule la
+   *  grille jour × créneau directement à partir de la grille éditée à l'écran — chaque jour garde ses
+   *  propres matin/midi/soir (ex. lundi peut n'exclure que le dîner, sans toucher au reste de la semaine) ;
+   *  un jour où les 3 sont décochés équivaut à un jour "libre". Un ajustement encore plus fin, repas par
+   *  repas en cours de semaine, se fait ensuite depuis Planning ou Aujourd'hui (bascule "repas libre"). */
+  function applyDaySlotSelection(slotsByDay: Record<number, { matin: boolean; midi: boolean; soir: boolean }>) {
     const next: DayMealNeeds = {}
     for (let day = 1; day <= 7; day++) {
-      const active = days.includes(day)
-      const s = slotsByDay[day] ?? { matin: true, midi: true, soir: true }
-      next[day] = { matin: active && s.matin, midi: active && s.midi, soir: active && s.soir }
+      next[day] = slotsByDay[day] ?? { matin: true, midi: true, soir: true }
     }
     setMealNeeds(next)
     setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(weekPlan, next)), prev))
