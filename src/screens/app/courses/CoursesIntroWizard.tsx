@@ -2,24 +2,34 @@ import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { useApp } from '../../../context/AppContext'
 import { Button } from '../../../components/ui'
+import DaySlotsGrid from './DaySlotsGrid'
 import DaysField from './DaysField'
-import { aggregateDays, aggregateSlots } from './mealNeedsUtils'
-import SlotsField, { type SlotsValue } from './SlotsField'
+import { aggregateDays, initSlotsByDay } from './mealNeedsUtils'
+import type { SlotsValue } from './SlotsField'
 
 /** Assistant en 2 étapes réaffiché à chaque passage dans l'onglet Courses : d'abord les jours où l'on
- *  compte se faire à manger, puis les repas (matin/midi/soir) à prévoir pour ces jours-là — au lieu d'un
- *  réglage figé une fois pour toutes, facile à oublier. */
+ *  compte se faire à manger, puis, pour ces jours-là, les repas (matin/midi/soir) à prévoir jour par jour
+ *  — ex. mardi seulement midi et soir — au lieu d'un réglage figé une fois pour toutes, facile à oublier. */
 export default function CoursesIntroWizard({ onDone }: { onDone: () => void }) {
   const { mealNeeds, applyDaySlotSelection } = useApp()
   const [step, setStep] = useState<'days' | 'slots'>('days')
   const [days, setDays] = useState<number[]>(() => aggregateDays(mealNeeds))
-  const [slots, setSlots] = useState<SlotsValue>(() => aggregateSlots(mealNeeds))
+  const [slotsByDay, setSlotsByDay] = useState<Record<number, SlotsValue>>(() => initSlotsByDay(mealNeeds))
+
+  function toggleSlot(day: number, key: keyof SlotsValue) {
+    setSlotsByDay((prev) => ({ ...prev, [day]: { ...(prev[day] ?? { matin: true, midi: true, soir: true }), [key]: !prev[day]?.[key] } }))
+  }
+
+  const hasAnySlot = days.some((d) => {
+    const s = slotsByDay[d]
+    return s ? s.matin || s.midi || s.soir : true
+  })
 
   function validate() {
     // Changer "quels jours / quels repas" ne change pas les recettes elles-mêmes (generateWeekPlan ne
     // dépend pas de mealNeeds) : pas besoin de régénérer le menu, juste de recalculer la grille jour ×
     // créneau et la liste de courses en conséquence.
-    applyDaySlotSelection(days, slots)
+    applyDaySlotSelection(days, slotsByDay)
     onDone()
   }
 
@@ -64,17 +74,16 @@ export default function CoursesIntroWizard({ onDone }: { onDone: () => void }) {
         </button>
         <h1 className="text-xl font-extrabold text-ink">Quels repas voulez-vous prévoir ?</h1>
         <p className="text-[13px] text-ink-soft mt-1">
-          Pour les {days.length} jour{days.length !== 1 ? 's' : ''} sélectionné{days.length !== 1 ? 's' : ''}, le menu et la
-          liste de courses porteront sur ces repas.
+          Réglez matin/midi/soir jour par jour — par exemple, pas de petit-déjeuner le mardi mais midi et soir oui.
         </p>
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-4">
-        <SlotsField slots={slots} onChange={setSlots} />
+        <DaySlotsGrid days={days} value={slotsByDay} onToggle={toggleSlot} />
       </div>
 
       <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-2 shrink-0 border-t border-black/5">
-        <Button full disabled={!slots.matin && !slots.midi && !slots.soir} onClick={validate}>
+        <Button full disabled={!hasAnySlot} onClick={validate}>
           Valider et découvrir mon menu
         </Button>
       </div>

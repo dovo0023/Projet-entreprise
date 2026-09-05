@@ -1,6 +1,6 @@
 import { CalendarDays } from 'lucide-react'
 
-const SHORT_DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+export const SHORT_DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
 /** Sélecteur de jours (1-7) partagé entre l'assistant Courses (étape 1) et le panneau Préférences. */
 export default function DaysField({ days, onChange }: { days: number[]; onChange: (days: number[]) => void }) {
