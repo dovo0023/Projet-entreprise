@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../../../context/AppContext'
 import { WEEK_DAYS } from '../../../data/mock'
 import { Button, Card, Pill, SectionTitle } from '../../../components/ui'
+import { SHORT_DAYS } from './DaySlotsGrid'
 import PreferencesPanel from './PreferencesPanel'
 import type { Meal } from '../../../types'
 
@@ -19,7 +20,18 @@ const SLOT_ORDER: Meal['slot'][] = ['petit-dejeuner', 'encas-matin', 'midi', 'en
 export default function MenuStep() {
   const { weekPlan, replaceMeal, applyPreferences, setCourseStep, mealNeeds } = useApp()
   const [prefsOpen, setPrefsOpen] = useState(false)
+  const [selectedDay, setSelectedDay] = useState(1)
   const nothingPlanned = useMemo(() => Object.values(mealNeeds).every((d) => !d.matin && !d.midi && !d.soir), [mealNeeds])
+
+  const dayMeals = weekPlan
+    .filter((m) => {
+      if (m.day !== selectedDay) return false
+      if (m.slot === 'petit-dejeuner') return mealNeeds[selectedDay]?.matin ?? true
+      if (m.slot === 'midi') return mealNeeds[selectedDay]?.midi ?? true
+      if (m.slot === 'soir') return mealNeeds[selectedDay]?.soir ?? true
+      return true
+    })
+    .sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -46,30 +58,40 @@ export default function MenuStep() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-4 flex flex-col gap-6">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar px-5 pb-3 shrink-0">
+        {WEEK_DAYS.map((dayName, idx) => {
+          const dayNum = idx + 1
+          const active = dayNum === selectedDay
+          return (
+            <button
+              key={dayNum}
+              onClick={() => setSelectedDay(dayNum)}
+              aria-label={dayName}
+              className={`tap shrink-0 flex flex-col items-center px-4 py-2 rounded-2xl border ${
+                active ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
+              }`}
+            >
+              <span className="text-[12.5px] font-bold">{SHORT_DAYS[idx]}</span>
+              <span className={`text-[10px] font-semibold ${active ? 'text-cream/60' : 'text-ink-soft/50'}`}>J{dayNum}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-4 fade-up" key={selectedDay}>
         {nothingPlanned && (
           <p className="text-[13px] text-ink-soft/60 text-center py-8">
             Aucun repas prévu cette semaine — ouvrez Préférences pour en ajouter.
           </p>
         )}
-        {WEEK_DAYS.map((dayName, idx) => {
-          const dayNum = idx + 1
-          const dayMeals = weekPlan
-            .filter((m) => {
-              if (m.day !== dayNum) return false
-              if (m.slot === 'petit-dejeuner') return mealNeeds[dayNum]?.matin ?? true
-              if (m.slot === 'midi') return mealNeeds[dayNum]?.midi ?? true
-              if (m.slot === 'soir') return mealNeeds[dayNum]?.soir ?? true
-              return true
-            })
-            .sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
-          if (dayMeals.length === 0) return null
-
-          return (
-            <div key={dayName}>
-              <SectionTitle>
-                {dayName} · Jour {dayNum}
-              </SectionTitle>
+        {!nothingPlanned && (
+          <>
+            <SectionTitle>
+              {WEEK_DAYS[selectedDay - 1]} · Jour {selectedDay}
+            </SectionTitle>
+            {dayMeals.length === 0 ? (
+              <p className="text-[13px] text-ink-soft/60 text-center py-8">Journée libre — rien de prévu ce jour-là.</p>
+            ) : (
               <div className="flex flex-col gap-2.5">
                 {dayMeals.map((meal) => (
                   <Card key={meal.id} className="!p-3 flex items-center gap-3">
@@ -96,9 +118,9 @@ export default function MenuStep() {
                   </Card>
                 ))}
               </div>
-            </div>
-          )
-        })}
+            )}
+          </>
+        )}
       </div>
 
       <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-2 shrink-0 border-t border-black/5 flex gap-2.5">
