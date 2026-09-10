@@ -4,12 +4,11 @@ import { useApp } from '../../context/AppContext'
 import type { UserProfile } from '../../types'
 
 const PLANS: { name: UserProfile['plan']; price: string; features: string[]; highlight?: boolean }[] = [
-  { name: 'Gratuit', price: '0 €', features: ['Calcul BMR / DEJ', 'Socle allergènes illimité', '3 recettes / semaine'] },
   {
     name: 'Starter',
-    price: '4,99 €/mois (39 €/an)',
+    price: 'Essai gratuit 1 mois, puis 4,99 €/mois (39 €/an)',
     features: [
-      'Planning complet sur 7 jours (contre 3 jours en Gratuit)',
+      'Planning complet sur 7 jours',
       'Liste de courses de toute la semaine',
       'Allergies, intolérances & préférences illimitées',
       'Calcul métabolique (BMR/TDEE) inclus',

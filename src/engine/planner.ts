@@ -30,6 +30,12 @@ export function aggregateAllergens(profile: UserProfile, householdMembers: House
   return Array.from(new Set([...profile.allergens, ...householdMembers.flatMap((m) => m.allergens)]))
 }
 
+/** Aliments non appréciés cumulés du profil et de tous les membres du foyer : une préférence à éviter au
+ *  mieux (voir `filterByDislikedFoods`), pas une contre-indication comme les allergènes. */
+export function aggregateDislikedFoods(profile: UserProfile, householdMembers: HouseholdMember[]): string[] {
+  return Array.from(new Set([...profile.dislikedFoods, ...householdMembers.flatMap((m) => m.dislikedFoods)]))
+}
+
 const SLOT_CODE: Record<Meal['slot'], string> = {
   'petit-dejeuner': 'pdj',
   midi: 'midi',
@@ -44,59 +50,32 @@ function recipeSlotFor(slot: Meal['slot']): RecipeSlot {
   return slot
 }
 
-/** Créneaux actifs de la journée, selon que des encas sont activés et à quel moment. */
-function activeSlots(constraints: PlannerConstraints): Meal['slot'][] {
+/** Créneaux actifs d'un jour donné : les 3 repas classiques, plus les encas réglés pour ce jour précis. */
+function activeSlots(constraints: PlannerConstraints, day: number): Meal['slot'][] {
   const slots: Meal['slot'][] = ['petit-dejeuner', 'midi', 'soir']
-  if (constraints.snacks.enabled) {
-    if (constraints.snacks.timing === 'matin' || constraints.snacks.timing === 'les_deux') slots.push('encas-matin')
-    if (constraints.snacks.timing === 'apres_midi' || constraints.snacks.timing === 'les_deux') slots.push('encas-apresmidi')
-  }
+  const timing = constraints.snacksByDay[day]
+  if (timing === 'matin' || timing === 'les_deux') slots.push('encas-matin')
+  if (timing === 'apres_midi' || timing === 'les_deux') slots.push('encas-apresmidi')
   return slots
 }
 
-/** Répartition indicative des calories/macros journalières entre les créneaux actifs. */
-function computeSlotShares(constraints: PlannerConstraints): Partial<Record<Meal['slot'], number>> {
-  const { enabled, timing } = constraints.snacks
-  if (!enabled) return { 'petit-dejeuner': 0.25, midi: 0.4, soir: 0.35 }
+/** Répartition indicative des calories/macros du jour entre les créneaux actifs de ce jour. */
+function computeSlotShares(constraints: PlannerConstraints, day: number): Partial<Record<Meal['slot'], number>> {
+  const timing = constraints.snacksByDay[day]
+  if (!timing) return { 'petit-dejeuner': 0.25, midi: 0.4, soir: 0.35 }
   if (timing === 'les_deux') return { 'petit-dejeuner': 0.2, midi: 0.35, soir: 0.3, 'encas-matin': 0.075, 'encas-apresmidi': 0.075 }
   const base = { 'petit-dejeuner': 0.22, midi: 0.37, soir: 0.32 }
   return timing === 'matin' ? { ...base, 'encas-matin': 0.09 } : { ...base, 'encas-apresmidi': 0.09 }
 }
 
-function slotTarget(targets: MacroTargets, slot: Meal['slot'], constraints: PlannerConstraints): MacroTargets {
-  const share = computeSlotShares(constraints)[slot] ?? 0.1
+function slotTarget(targets: MacroTargets, slot: Meal['slot'], constraints: PlannerConstraints, day: number): MacroTargets {
+  const share = computeSlotShares(constraints, day)[slot] ?? 0.1
   return {
     kcal: targets.kcal * share,
     protein: targets.protein * share,
     carbs: targets.carbs * share,
     fat: targets.fat * share,
   }
-}
-
-/**
- * Répartit `sessions` (1-7) jours en groupes contigus aussi égaux que possible : une "session de cuisine"
- * couvre un groupe entier avec la même recette (cuisine en lot). `sessions = 7` donne 7 groupes d'1 jour,
- * soit exactement le comportement classique (une recette différente possible chaque jour).
- */
-export function computeBatches(sessions: number): number[][] {
-  const n = Math.max(1, Math.min(7, Math.round(sessions)))
-  const batches: number[][] = []
-  let day = 1
-  for (let i = 0; i < n; i++) {
-    const remainingDays = 7 - day + 1
-    const remainingBatches = n - i
-    const size = Math.ceil(remainingDays / remainingBatches)
-    const batch: number[] = []
-    for (let k = 0; k < size; k++) batch.push(day++)
-    batches.push(batch)
-  }
-  return batches
-}
-
-/** Répartit `hotCount` sessions chaudes le plus régulièrement possible parmi `total` sessions. */
-function isHotBatch(index: number, total: number, hotCount: number): boolean {
-  if (total === 0) return false
-  return Math.round(((index + 1) * hotCount) / total) - Math.round((index * hotCount) / total) === 1
 }
 
 function timeBandOf(prepTime: number): TimeBand {
@@ -121,9 +100,29 @@ function filterByTemperature(candidates: RecipeTemplate[], desiredTemp: Temperat
   return narrowed.length > 0 ? narrowed : candidates
 }
 
-/** Applique les préférences (temps, chaud/froid) comme de vrais filtres, avec repli si trop restrictif. */
-function applyPreferenceFilters(candidates: RecipeTemplate[], constraints: PlannerConstraints, desiredTemp: Temperature | null): RecipeTemplate[] {
-  return filterByTemperature(filterByTimeBand(candidates, constraints), desiredTemp)
+/** Une recette "contient" un aliment non apprécié si son nom ou l'un de ses ingrédients le mentionne
+ *  (comparaison simple, insensible à la casse) — pas d'analyse nutritionnelle réelle des ingrédients. */
+function containsDislikedFood(recipe: RecipeTemplate, dislikedFoods: string[]): boolean {
+  const haystack = `${recipe.name} ${recipe.ingredients.map((i) => i.name).join(' ')}`.toLowerCase()
+  return dislikedFoods.some((food) => food.trim().length > 0 && haystack.includes(food.trim().toLowerCase()))
+}
+
+/** Écarte les recettes contenant un aliment non apprécié ; repli sur toutes si ça viderait la liste (une
+ *  préférence n'a jamais le dernier mot face à la nécessité de remplir un créneau). */
+function filterByDislikedFoods(candidates: RecipeTemplate[], dislikedFoods: string[]): RecipeTemplate[] {
+  if (dislikedFoods.length === 0) return candidates
+  const narrowed = candidates.filter((r) => !containsDislikedFood(r, dislikedFoods))
+  return narrowed.length > 0 ? narrowed : candidates
+}
+
+/** Applique les préférences (temps, chaud/froid, aliments non appréciés) comme de vrais filtres, avec repli si trop restrictif. */
+function applyPreferenceFilters(
+  candidates: RecipeTemplate[],
+  constraints: PlannerConstraints,
+  desiredTemp: Temperature | null,
+  dislikedFoods: string[],
+): RecipeTemplate[] {
+  return filterByDislikedFoods(filterByTemperature(filterByTimeBand(candidates, constraints), desiredTemp), dislikedFoods)
 }
 
 /** Un airfryer peut remplacer un four pour les recettes qui en ont besoin (cuisson/rôtissage). */
@@ -143,8 +142,8 @@ function isEligible(recipe: RecipeTemplate, allergens: string[], requiredDiet: D
 }
 
 /** Écart relatif pondéré entre une recette et la cible macro du repas : 0 = parfait. */
-function macroDeviation(recipe: RecipeTemplate, target: MacroTargets, macroFocus: PlannerConstraints['macroFocus']): number {
-  const weights = macroFocus === 'riche_proteines' ? { kcal: 1, protein: 2.2, carbs: 0.6, fat: 0.6 } : { kcal: 1.2, protein: 1, carbs: 0.8, fat: 0.8 }
+function macroDeviation(recipe: RecipeTemplate, target: MacroTargets): number {
+  const weights = { kcal: 1.2, protein: 1, carbs: 0.8, fat: 0.8 }
   const rel = (value: number, ref: number) => Math.abs(value - ref) / Math.max(ref, 1)
   return (
     rel(recipe.kcal, target.kcal) * weights.kcal +
@@ -179,7 +178,7 @@ function seededJitter(seed: number, key: string): number {
 
 /** Score composite : plus bas = meilleur choix. Combine macros, temps, chaud/froid, budget, fraîcheur et variété. */
 function scoreRecipe(recipe: RecipeTemplate, ctx: ScoreContext): number {
-  let score = macroDeviation(recipe, ctx.target, ctx.constraints.macroFocus)
+  let score = macroDeviation(recipe, ctx.target)
 
   // Temps de préparation souhaité (bande large plutôt que seuil strict).
   if (ctx.constraints.timeBand) {
@@ -187,7 +186,7 @@ function scoreRecipe(recipe: RecipeTemplate, ctx: ScoreContext): number {
     score += diff * 0.5
   }
 
-  // Répartition chaud/froid voulue pour cette session de cuisine.
+  // Répartition chaud/froid voulue pour ce jour.
   if (ctx.desiredTemp && recipe.temperature && recipe.temperature !== ctx.desiredTemp) {
     score += 0.6
   }
@@ -224,9 +223,7 @@ function freshnessDayFor(recipe: RecipeTemplate, day: number): number {
   return Math.min(7, day + offset)
 }
 
-/** `cookedDay` (par défaut = `day`) sert au calcul de fraîcheur : pour un repas en lot, c'est le premier
- *  jour du lot (cuisiné une fois), pas le jour où il est effectivement mangé. */
-function toMeal(recipe: RecipeTemplate, day: number, slot: Meal['slot'], cookedDay: number = day): Meal {
+function toMeal(recipe: RecipeTemplate, day: number, slot: Meal['slot']): Meal {
   return {
     id: `${recipe.id}-d${day}-${SLOT_CODE[slot]}`,
     day,
@@ -237,7 +234,7 @@ function toMeal(recipe: RecipeTemplate, day: number, slot: Meal['slot'], cookedD
     carbs: recipe.carbs,
     fat: recipe.fat,
     prepTime: recipe.prepTime,
-    freshnessDay: freshnessDayFor(recipe, cookedDay),
+    freshnessDay: freshnessDayFor(recipe, day),
     ingredients: recipe.ingredients,
     steps: recipe.steps,
     image: recipe.image,
@@ -248,26 +245,12 @@ interface Assignment {
   day: number
   slot: Meal['slot']
   recipe: RecipeTemplate
-  cookedDay: number
 }
 
-interface BatchInfo {
-  dayToBatchIndex: Map<number, number>
-  batchAnchorDay: Map<number, number>
-  desiredTempByBatch: (Temperature | null)[]
-}
-
-/** Précalcule le découpage en lots de cuisine pour midi/soir (7 lots d'1 jour = comportement classique). */
-function buildBatchInfo(sessions: number, hotCount: number | null): BatchInfo {
-  const batches = computeBatches(sessions)
-  const dayToBatchIndex = new Map<number, number>()
-  const batchAnchorDay = new Map<number, number>()
-  batches.forEach((days, idx) => {
-    batchAnchorDay.set(idx, days[0])
-    days.forEach((d) => dayToBatchIndex.set(d, idx))
-  })
-  const desiredTempByBatch = batches.map((_, idx) => (hotCount == null ? null : isHotBatch(idx, batches.length, hotCount) ? ('chaud' as const) : ('froid' as const)))
-  return { dayToBatchIndex, batchAnchorDay, desiredTempByBatch }
+/** Préférence chaud/froid réglée pour ce jour et ce créneau (midi/soir uniquement) ; null = pas de préférence. */
+function desiredTempFor(constraints: PlannerConstraints, slot: Meal['slot'], day: number): Temperature | null {
+  if (slot !== 'midi' && slot !== 'soir') return null
+  return constraints.hotColdByDay[day]?.[slot] ?? null
 }
 
 /**
@@ -279,6 +262,7 @@ export function generateWeekPlan(
   targets: MacroTargets,
   constraints: PlannerConstraints,
   allergens: string[],
+  dislikedFoods: string[],
   requiredDiet: DietType,
   ownedEquipment: KitchenEquipment[],
   seed = 0,
@@ -291,50 +275,21 @@ export function generateWeekPlan(
     encas: eligible.filter((r) => r.slot === 'encas'),
   }
 
-  const slots = activeSlots(constraints)
   const usageCount = new Map<string, number>()
   const assignments: Assignment[] = []
   let budgetSpent = 0
-  const totalSlots = 7 * slots.length
+
+  let totalSlots = 0
+  for (let day = 1; day <= 7; day++) totalSlots += activeSlots(constraints, day).length
   let slotsFilled = 0
 
-  // Découpage en lots de cuisine pour midi/soir (une recette reconduite sur tout le lot).
-  const batchInfo: Partial<Record<'midi' | 'soir', BatchInfo>> = {}
-  for (const slot of ['midi', 'soir'] as const) {
-    if (slots.includes(slot)) batchInfo[slot] = buildBatchInfo(constraints.cookingSessions[slot], constraints.hotSessions[slot])
-  }
-
-  function desiredTempFor(slot: Meal['slot'], day: number): Temperature | null {
-    if (slot !== 'midi' && slot !== 'soir') return null
-    const info = batchInfo[slot]
-    if (!info) return null
-    return info.desiredTempByBatch[info.dayToBatchIndex.get(day)!]
-  }
-
-  const lastRecipeForSlot = new Map<'midi' | 'soir', RecipeTemplate>()
-
   for (let day = 1; day <= 7; day++) {
+    const slots = activeSlots(constraints, day)
     for (const slot of slots) {
-      const info = slot === 'midi' || slot === 'soir' ? batchInfo[slot] : undefined
-      const batchIdx = info?.dayToBatchIndex.get(day)
-      const isBatchContinuation = info != null && batchIdx != null && info.batchAnchorDay.get(batchIdx) !== day
-
-      if (isBatchContinuation) {
-        // Jour de reconduction d'un lot déjà cuisiné : on réutilise la même recette, pas de nouveau choix.
-        const recipe = lastRecipeForSlot.get(slot as 'midi' | 'soir')
-        if (!recipe) continue
-        const cookedDay = info!.batchAnchorDay.get(batchIdx!)!
-        assignments.push({ day, slot, recipe, cookedDay })
-        usageCount.set(recipe.id, (usageCount.get(recipe.id) ?? 0) + 1)
-        budgetSpent += recipe.cost
-        slotsFilled++
-        continue
-      }
-
-      const desiredTemp = desiredTempFor(slot, day)
-      const candidates = applyPreferenceFilters(byRecipeSlot[recipeSlotFor(slot)], constraints, desiredTemp)
+      const desiredTemp = desiredTempFor(constraints, slot, day)
+      const candidates = applyPreferenceFilters(byRecipeSlot[recipeSlotFor(slot)], constraints, desiredTemp, dislikedFoods)
       if (candidates.length === 0) continue
-      const target = slotTarget(targets, slot, constraints)
+      const target = slotTarget(targets, slot, constraints, day)
       const ctx: ScoreContext = {
         slot,
         target,
@@ -356,8 +311,7 @@ export function generateWeekPlan(
           best = candidate
         }
       }
-      if (slot === 'midi' || slot === 'soir') lastRecipeForSlot.set(slot, best)
-      assignments.push({ day, slot, recipe: best, cookedDay: day })
+      assignments.push({ day, slot, recipe: best })
       usageCount.set(best.id, (usageCount.get(best.id) ?? 0) + 1)
       budgetSpent += best.cost
       slotsFilled++
@@ -365,9 +319,8 @@ export function generateWeekPlan(
   }
 
   // Passe d'amélioration locale (recherche 2-opt) : on tente d'échanger deux repas du même créneau
-  // entre deux jours si cela réduit le score combiné. Exclue les créneaux en cuisine par lots (sessions < 7)
-  // pour ne jamais casser la cohérence d'un lot (même recette sur tous ses jours).
-  const twoOptSlots = slots.filter((slot) => (slot !== 'midi' && slot !== 'soir') || constraints.cookingSessions[slot] === 7)
+  // entre deux jours si cela réduit le score combiné.
+  const twoOptSlots = Array.from(new Set(assignments.map((a) => a.slot)))
   for (let pass = 0; pass < 2; pass++) {
     for (const slot of twoOptSlots) {
       const idxs = assignments.map((a, i) => (a.slot === slot ? i : -1)).filter((i) => i >= 0)
@@ -380,11 +333,11 @@ export function generateWeekPlan(
           if (ai.recipe.id === aj.recipe.id) continue
 
           const scoreBefore =
-            scoreRecipe(ai.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id), seed, desiredTempFor(slot, ai.day))) +
-            scoreRecipe(aj.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id), seed, desiredTempFor(slot, aj.day)))
+            scoreRecipe(ai.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id), seed, desiredTempFor(constraints, slot, ai.day))) +
+            scoreRecipe(aj.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id), seed, desiredTempFor(constraints, slot, aj.day)))
           const scoreAfter =
-            scoreRecipe(aj.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id), seed, desiredTempFor(slot, ai.day))) +
-            scoreRecipe(ai.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id), seed, desiredTempFor(slot, aj.day)))
+            scoreRecipe(aj.recipe, buildCtx(ai.day, slot, targets, constraints, undoUsage(usageCount, aj.recipe.id), seed, desiredTempFor(constraints, slot, ai.day))) +
+            scoreRecipe(ai.recipe, buildCtx(aj.day, slot, targets, constraints, undoUsage(usageCount, ai.recipe.id), seed, desiredTempFor(constraints, slot, aj.day)))
 
           if (scoreAfter < scoreBefore - 0.05) {
             assignments[i] = { ...ai, recipe: aj.recipe }
@@ -395,7 +348,7 @@ export function generateWeekPlan(
     }
   }
 
-  return assignments.map((a) => toMeal(a.recipe, a.day, a.slot, a.cookedDay))
+  return assignments.map((a) => toMeal(a.recipe, a.day, a.slot))
 }
 
 function undoUsage(usageCount: Map<string, number>, recipeId: string): Map<string, number> {
@@ -415,7 +368,7 @@ function buildCtx(
 ): ScoreContext {
   return {
     slot,
-    target: slotTarget(targets, slot, constraints),
+    target: slotTarget(targets, slot, constraints, day),
     constraints,
     usageCount,
     dayIndex: day - 1,
@@ -451,6 +404,7 @@ function rankAlternatives(
   targets: MacroTargets,
   constraints: PlannerConstraints,
   allergens: string[],
+  dislikedFoods: string[],
   requiredDiet: DietType,
   ownedEquipment: KitchenEquipment[],
 ): RecipeTemplate[] {
@@ -468,13 +422,14 @@ function rankAlternatives(
     ),
     constraints,
     desiredTemp,
+    dislikedFoods,
   )
   const usageCount = new Map<string, number>()
   usedElsewhere.forEach((id) => usageCount.set(id, 1))
 
   const ctx: ScoreContext = {
     slot: current.slot,
-    target: slotTarget(targets, current.slot, constraints),
+    target: slotTarget(targets, current.slot, constraints, current.day),
     constraints,
     usageCount,
     dayIndex: current.day - 1,
@@ -495,11 +450,12 @@ export function replaceMealInPlan(
   targets: MacroTargets,
   constraints: PlannerConstraints,
   allergens: string[],
+  dislikedFoods: string[],
   requiredDiet: DietType,
   ownedEquipment: KitchenEquipment[],
 ): Meal[] {
   const current = plan.find((m) => m.id === mealId)
-  const best = rankAlternatives(plan, mealId, targets, constraints, allergens, requiredDiet, ownedEquipment)[0]
+  const best = rankAlternatives(plan, mealId, targets, constraints, allergens, dislikedFoods, requiredDiet, ownedEquipment)[0]
   if (!current || !best) return plan
   return plan.map((m) => (m.id === mealId ? toMeal(best, current.day, current.slot) : m))
 }
@@ -511,11 +467,12 @@ export function getMealAlternatives(
   targets: MacroTargets,
   constraints: PlannerConstraints,
   allergens: string[],
+  dislikedFoods: string[],
   requiredDiet: DietType,
   ownedEquipment: KitchenEquipment[],
   count = 3,
 ): RecipeTemplate[] {
-  return rankAlternatives(plan, mealId, targets, constraints, allergens, requiredDiet, ownedEquipment).slice(0, count)
+  return rankAlternatives(plan, mealId, targets, constraints, allergens, dislikedFoods, requiredDiet, ownedEquipment).slice(0, count)
 }
 
 /** Applique un choix explicite de recette (proposée par getMealAlternatives) à un repas du planning. */

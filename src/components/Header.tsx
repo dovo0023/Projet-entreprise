@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 
 const PLAN_STYLES: Record<string, string> = {
-  Gratuit: 'bg-gray-100 text-gray-600',
   Starter: 'bg-leaf-100 text-leaf-700',
   Pro: 'bg-clementine-100 text-clementine-500',
   Ultra: 'bg-ink text-cream',

@@ -2,9 +2,13 @@ import { Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { useApp } from '../../../context/AppContext'
 import { Button } from '../../../components/ui'
+import BudgetField from './BudgetField'
 import DaySlotsGrid from './DaySlotsGrid'
+import EncasField from './EncasField'
+import HotColdField from './HotColdField'
 import { toSlotsByDay } from './mealNeedsUtils'
 import type { SlotsValue } from './SlotsField'
+import TimeBandField from './TimeBandField'
 
 /** Assistant réaffiché à chaque passage dans l'onglet Courses : une grille des 7 jours, chacun réglable
  *  indépendamment sur ses 3 repas (matin/midi/soir) — pas de présélection "quels jours" au préalable, pour
@@ -36,12 +40,17 @@ export default function CoursesIntroWizard({ onDone }: { onDone: () => void }) {
         </div>
         <h1 className="text-xl font-extrabold text-ink">Quels repas voulez-vous prévoir cette semaine ?</h1>
         <p className="text-[13px] text-ink-soft mt-1">
-          Réglez matin/midi/soir jour par jour — par exemple, pas de dîner lundi, mais matin et midi oui.
+          Réglez matin/midi/soir jour par jour — par exemple, pas de dîner lundi, mais matin et midi oui. Vous pourrez
+          toujours ajuster ces réglages plus tard depuis Préférences.
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-4">
+      <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-4 flex flex-col gap-7">
         <DaySlotsGrid value={slotsByDay} onToggle={toggleSlot} />
+        <EncasField />
+        <HotColdField />
+        <TimeBandField />
+        <BudgetField />
       </div>
 
       <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-2 shrink-0 border-t border-black/5 flex flex-col gap-2.5">

@@ -34,9 +34,9 @@ const FAQ: FaqEntry[] = [
       'Dans Aujourd’hui, le bloc « Journal du jour » permet de noter ce que vous mangez en plus du menu prévu. Si un repas prévu ne vous convient plus (vous sortez, par ex.), marquez-le « libre » : il part dans une réserve et vous pouvez l’échanger avec un autre jour depuis Planning.',
   },
   {
-    keywords: ['abonnement', 'plan', 'prix', 'starter', 'ultra', 'gratuit', 'pro'],
+    keywords: ['abonnement', 'plan', 'prix', 'starter', 'ultra', 'essai', 'pro'],
     answer:
-      'Votre abonnement (Gratuit / Starter / Pro / Ultra) se gère depuis Profil. Chaque palier débloque davantage de fonctionnalités, comme la boucle adaptative automatique en Ultra.',
+      'Votre abonnement (Starter / Pro / Ultra) se gère depuis Profil. Starter démarre par un mois d’essai gratuit. Chaque palier débloque davantage de fonctionnalités, comme la boucle adaptative automatique en Ultra.',
   },
   {
     keywords: ['allergie', 'régime', 'regime', 'préférence', 'preference', 'végétarien', 'vegetarien', 'végétalien'],

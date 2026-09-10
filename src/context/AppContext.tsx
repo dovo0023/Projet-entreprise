@@ -19,10 +19,13 @@ import type {
   PractitionerListing,
   RecipeTemplate,
   ShoppingItem,
+  SnackTiming,
+  Temperature,
   UserProfile,
 } from '../types'
 import {
   aggregateAllergens,
+  aggregateDislikedFoods,
   applyMealChoice,
   computeWeekStats,
   generateWeekPlan,
@@ -55,17 +58,29 @@ export const DEFAULT_PROFILE: UserProfile = {
   goal: 'seche',
   dietType: 'omnivore',
   allergens: [],
+  dislikedFoods: [],
   plan: 'Starter',
+}
+
+/** Grille jour × créneau vide (aucune préférence) pour les 7 jours — sert de valeur par défaut aux
+ *  réglages d'encas et de chaud/froid, réglables jour par jour. */
+function emptySnacksByDay(): Record<number, SnackTiming | null> {
+  const map: Record<number, SnackTiming | null> = {}
+  for (let day = 1; day <= 7; day++) map[day] = null
+  return map
+}
+
+function emptyHotColdByDay(): Record<number, { midi: Temperature | null; soir: Temperature | null }> {
+  const map: Record<number, { midi: Temperature | null; soir: Temperature | null }> = {}
+  for (let day = 1; day <= 7; day++) map[day] = { midi: null, soir: null }
+  return map
 }
 
 export const DEFAULT_CONSTRAINTS: PlannerConstraints = {
   timeBand: null,
-  snacks: { enabled: false, timing: 'matin' },
   weeklyBudget: null,
-  macroFocus: 'equilibre',
-  // 7 = on cuisine chaque jour (comportement classique, aucun changement pour l'existant).
-  cookingSessions: { midi: 7, soir: 7 },
-  hotSessions: { midi: null, soir: null },
+  snacksByDay: emptySnacksByDay(),
+  hotColdByDay: emptyHotColdByDay(),
 }
 
 /** Par défaut on suppose tout l'équipement disponible : l'utilisateur décoche ce qu'il n'a pas. */
@@ -80,7 +95,7 @@ const DEFAULT_MESSAGES: ChatMessage[] = [
   { from: 'praticien', text: 'Super Camille, continuez ainsi. On garde le cap sur -350 kcal/j.', time: 'Lun 10:02' },
 ]
 
-const STORAGE_KEY = 'nutriflow_b2c_state_v6'
+const STORAGE_KEY = 'nutriflow_b2c_state_v7'
 
 /** Pour un repas prévu (identifié par son id) que la personne n'a pas mangé tel quel : ce qu'elle a mangé à
  *  la place, avec l'id de l'entrée du journal correspondante (pour pouvoir annuler proprement). */
@@ -174,12 +189,12 @@ interface AppState {
   onboarded: boolean
   profile: UserProfile
   setProfile: (p: Partial<UserProfile>) => void
-  updateSelfDietaryProfile: (patch: Partial<Pick<UserProfile, 'goal' | 'dietType' | 'allergens'>>) => void
+  updateSelfDietaryProfile: (patch: Partial<Pick<UserProfile, 'goal' | 'dietType' | 'allergens' | 'dislikedFoods'>>) => void
   completeOnboarding: () => void
   targets: MacroTargets
 
   householdMembers: HouseholdMember[]
-  addHouseholdMember: (name: string, goal: Goal, dietType: DietType, allergens: string[]) => void
+  addHouseholdMember: (name: string, goal: Goal, dietType: DietType, allergens: string[], dislikedFoods: string[]) => void
   updateHouseholdMember: (id: string, patch: Partial<Omit<HouseholdMember, 'id'>>) => void
   removeHouseholdMember: (id: string) => void
 
@@ -257,6 +272,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const targets = useMemo(() => computeTargets(profile), [profile])
   const householdAllergens = useMemo(() => aggregateAllergens(profile, householdMembers), [profile, householdMembers])
+  const householdDislikedFoods = useMemo(() => aggregateDislikedFoods(profile, householdMembers), [profile, householdMembers])
   const requiredDiet = useMemo(() => mostRestrictiveDiet(profile, householdMembers), [profile, householdMembers])
 
   const [initial] = useState(() => {
@@ -277,6 +293,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       computeTargets(baseProfile),
       baseConstraints,
       aggregateAllergens(baseProfile, baseMembers),
+      aggregateDislikedFoods(baseProfile, baseMembers),
       mostRestrictiveDiet(baseProfile, baseMembers),
       baseEquipment,
     )
@@ -364,13 +381,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   /** Modifier son propre objectif/régime/allergies est aussi un changement du foyer : ça régénère
    *  immédiatement le menu (nouvelles cibles caloriques et/ou nouveaux filtres durs). */
-  function updateSelfDietaryProfile(patch: Partial<Pick<UserProfile, 'goal' | 'dietType' | 'allergens'>>) {
+  function updateSelfDietaryProfile(patch: Partial<Pick<UserProfile, 'goal' | 'dietType' | 'allergens' | 'dislikedFoods'>>) {
     const nextProfile = { ...profile, ...patch }
     setProfileState(nextProfile)
     const plan = generateWeekPlan(
       computeTargets(nextProfile),
       constraints,
       aggregateAllergens(nextProfile, householdMembers),
+      aggregateDislikedFoods(nextProfile, householdMembers),
       mostRestrictiveDiet(nextProfile, householdMembers),
       kitchenEquipment,
       regenSeed.current,
@@ -385,6 +403,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       targets,
       constraints,
       aggregateAllergens(profile, nextMembers),
+      aggregateDislikedFoods(profile, nextMembers),
       mostRestrictiveDiet(profile, nextMembers),
       kitchenEquipment,
       regenSeed.current,
@@ -392,8 +411,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     applyNewPlan(plan)
   }
 
-  function addHouseholdMember(name: string, goal: Goal, dietType: DietType, allergens: string[]) {
-    const member: HouseholdMember = { id: `hm-${Date.now()}-${Math.round(Math.random() * 9999)}`, name, goal, dietType, allergens }
+  function addHouseholdMember(name: string, goal: Goal, dietType: DietType, allergens: string[], dislikedFoods: string[]) {
+    const member: HouseholdMember = { id: `hm-${Date.now()}-${Math.round(Math.random() * 9999)}`, name, goal, dietType, allergens, dislikedFoods }
     const next = [...householdMembers, member]
     setHouseholdMembers(next)
     setPersonalRecords((prev) => ({ ...prev, [member.id]: generatePersonalHistory(member.id, member.goal) }))
@@ -516,13 +535,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /** Changer l'équipement disponible régénère le menu comme un changement de foyer : c'est un filtre dur. */
   function setKitchenEquipment(equipment: KitchenEquipment[]) {
     setKitchenEquipmentState(equipment)
-    const plan = generateWeekPlan(targets, constraints, householdAllergens, requiredDiet, equipment, regenSeed.current)
+    const plan = generateWeekPlan(targets, constraints, householdAllergens, householdDislikedFoods, requiredDiet, equipment, regenSeed.current)
     applyNewPlan(plan)
   }
 
   function completeOnboarding() {
     setOnboarded(true)
-    const plan = generateWeekPlan(computeTargets(profile), constraints, householdAllergens, requiredDiet, kitchenEquipment)
+    const plan = generateWeekPlan(computeTargets(profile), constraints, householdAllergens, householdDislikedFoods, requiredDiet, kitchenEquipment)
     setWeekPlan(plan)
     const breakfast = plan.find((m) => m.day === 1 && m.slot === 'petit-dejeuner')
     setConsumedMealIds(breakfast ? [breakfast.id] : [])
@@ -538,20 +557,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   function applyPreferences() {
     regenSeed.current += 1
-    const plan = generateWeekPlan(targets, constraints, householdAllergens, requiredDiet, kitchenEquipment, regenSeed.current)
+    const plan = generateWeekPlan(targets, constraints, householdAllergens, householdDislikedFoods, requiredDiet, kitchenEquipment, regenSeed.current)
     applyNewPlan(plan)
   }
 
   function replaceMeal(mealId: string) {
     const old = weekPlan.find((m) => m.id === mealId)
-    const newPlan = replaceMealInPlan(weekPlan, mealId, targets, constraints, householdAllergens, requiredDiet, kitchenEquipment)
+    const newPlan = replaceMealInPlan(weekPlan, mealId, targets, constraints, householdAllergens, householdDislikedFoods, requiredDiet, kitchenEquipment)
     setWeekPlan(newPlan)
     subtractIfConsumed(old, mealId)
     setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(newPlan, mealNeeds)), prev))
   }
 
   function mealAlternatives(mealId: string, count = 3): RecipeTemplate[] {
-    return getMealAlternatives(weekPlan, mealId, targets, constraints, householdAllergens, requiredDiet, kitchenEquipment, count)
+    return getMealAlternatives(weekPlan, mealId, targets, constraints, householdAllergens, householdDislikedFoods, requiredDiet, kitchenEquipment, count)
   }
 
   function chooseMealAlternative(mealId: string, recipeId: string) {

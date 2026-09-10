@@ -2,7 +2,7 @@ import { ArrowLeft, Check, ChevronDown, Pencil, Plus, Trash2, User, X } from 'lu
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
-import { ALLERGEN_OPTIONS } from '../../data/mock'
+import { ALLERGEN_OPTIONS, DIETARY_FLAG_OPTIONS } from '../../data/mock'
 import { Button, Card, SectionTitle } from '../../components/ui'
 import HouseholdProgress from './HouseholdProgress'
 import type { DietType, Goal, HouseholdMember, KitchenEquipment } from '../../types'
@@ -47,9 +47,10 @@ interface MemberFormValue {
   goal: Goal
   dietType: DietType
   allergens: string[]
+  dislikedFoods: string[]
 }
 
-const EMPTY_FORM: MemberFormValue = { name: '', goal: 'maintien', dietType: 'omnivore', allergens: [] }
+const EMPTY_FORM: MemberFormValue = { name: '', goal: 'maintien', dietType: 'omnivore', allergens: [], dislikedFoods: [] }
 
 function MemberForm({
   value,
@@ -60,8 +61,21 @@ function MemberForm({
   onChange: (v: MemberFormValue) => void
   showName?: boolean
 }) {
+  const [dislikedInput, setDislikedInput] = useState('')
+
   function toggleAllergen(a: string) {
     onChange({ ...value, allergens: value.allergens.includes(a) ? value.allergens.filter((x) => x !== a) : [...value.allergens, a] })
+  }
+
+  function addDislikedFood() {
+    const food = dislikedInput.trim()
+    if (!food || value.dislikedFoods.includes(food)) return
+    onChange({ ...value, dislikedFoods: [...value.dislikedFoods, food] })
+    setDislikedInput('')
+  }
+
+  function removeDislikedFood(food: string) {
+    onChange({ ...value, dislikedFoods: value.dislikedFoods.filter((f) => f !== food) })
   }
 
   return (
@@ -120,7 +134,7 @@ function MemberForm({
       <div>
         <p className="text-[12px] font-semibold text-ink-soft mb-2">Allergies / intolérances</p>
         <div className="flex flex-wrap gap-2">
-          {ALLERGEN_OPTIONS.map((a) => (
+          {[...ALLERGEN_OPTIONS, ...DIETARY_FLAG_OPTIONS].map((a) => (
             <button
               key={a}
               onClick={() => toggleAllergen(a)}
@@ -131,6 +145,37 @@ function MemberForm({
               {a}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[12px] font-semibold text-ink-soft mb-1">Aliments non appréciés</p>
+        <p className="text-[11.5px] text-ink-soft/60 mb-2">
+          Une préférence, pas une allergie : ces plats restent proposés si aucune autre recette ne convient pour le créneau.
+        </p>
+        {value.dislikedFoods.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2.5">
+            {value.dislikedFoods.map((food) => (
+              <span key={food} className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full text-[12px] font-semibold bg-black/5 text-ink-soft">
+                {food}
+                <button onClick={() => removeDislikedFood(food)} className="tap w-4 h-4 rounded-full bg-black/10 flex items-center justify-center" aria-label={`Retirer ${food}`}>
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <input
+            value={dislikedInput}
+            onChange={(e) => setDislikedInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addDislikedFood())}
+            placeholder="Ex : champignons, olives…"
+            className="flex-1 rounded-2xl border border-black/10 px-3.5 py-2.5 text-[13px] outline-none focus:border-leaf-500"
+          />
+          <button onClick={addDislikedFood} className="tap px-4 rounded-2xl bg-ink text-cream font-bold text-[13px]">
+            Ajouter
+          </button>
         </div>
       </div>
     </div>
@@ -155,7 +200,13 @@ export default function HouseholdScreen() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<MemberFormValue>(EMPTY_FORM)
   const [editingSelf, setEditingSelf] = useState(false)
-  const [selfForm, setSelfForm] = useState<MemberFormValue>({ name: profile.firstName, goal: profile.goal, dietType: profile.dietType, allergens: profile.allergens })
+  const [selfForm, setSelfForm] = useState<MemberFormValue>({
+    name: profile.firstName,
+    goal: profile.goal,
+    dietType: profile.dietType,
+    allergens: profile.allergens,
+    dislikedFoods: profile.dislikedFoods,
+  })
 
   function startAdding() {
     setAddForm(EMPTY_FORM)
@@ -164,28 +215,34 @@ export default function HouseholdScreen() {
 
   function submitAdd() {
     if (!addForm.name.trim()) return
-    addHouseholdMember(addForm.name.trim(), addForm.goal, addForm.dietType, addForm.allergens)
+    addHouseholdMember(addForm.name.trim(), addForm.goal, addForm.dietType, addForm.allergens, addForm.dislikedFoods)
     setAdding(false)
   }
 
   function startEditing(m: HouseholdMember) {
-    setEditForm({ name: m.name, goal: m.goal, dietType: m.dietType, allergens: m.allergens })
+    setEditForm({ name: m.name, goal: m.goal, dietType: m.dietType, allergens: m.allergens, dislikedFoods: m.dislikedFoods })
     setEditingId(m.id)
   }
 
   function submitEdit() {
     if (!editingId || !editForm.name.trim()) return
-    updateHouseholdMember(editingId, { name: editForm.name.trim(), goal: editForm.goal, dietType: editForm.dietType, allergens: editForm.allergens })
+    updateHouseholdMember(editingId, {
+      name: editForm.name.trim(),
+      goal: editForm.goal,
+      dietType: editForm.dietType,
+      allergens: editForm.allergens,
+      dislikedFoods: editForm.dislikedFoods,
+    })
     setEditingId(null)
   }
 
   function startEditingSelf() {
-    setSelfForm({ name: profile.firstName, goal: profile.goal, dietType: profile.dietType, allergens: profile.allergens })
+    setSelfForm({ name: profile.firstName, goal: profile.goal, dietType: profile.dietType, allergens: profile.allergens, dislikedFoods: profile.dislikedFoods })
     setEditingSelf(true)
   }
 
   function submitSelf() {
-    updateSelfDietaryProfile({ goal: selfForm.goal, dietType: selfForm.dietType, allergens: selfForm.allergens })
+    updateSelfDietaryProfile({ goal: selfForm.goal, dietType: selfForm.dietType, allergens: selfForm.allergens, dislikedFoods: selfForm.dislikedFoods })
     setEditingSelf(false)
   }
 

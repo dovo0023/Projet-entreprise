@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useApp } from '../../context/AppContext'
-import { ALLERGEN_OPTIONS } from '../../data/mock'
+import { ALLERGEN_OPTIONS, DIETARY_FLAG_OPTIONS } from '../../data/mock'
 import { PatientAvatar } from '../../pro/ProLayout'
 import { usePro } from '../../pro/ProContext'
 import { useDisplayPatients } from '../../pro/useDisplayPatients'
@@ -197,7 +197,7 @@ export default function ProPatientDetail() {
 
             <p className="text-[11.5px] font-bold text-ink-soft mb-1.5">Allergènes / contre-indications</p>
             <div className="flex flex-wrap gap-1.5 mb-4">
-              {ALLERGEN_OPTIONS.map((a) => (
+              {[...ALLERGEN_OPTIONS, ...DIETARY_FLAG_OPTIONS].map((a) => (
                 <button
                   key={a}
                   onClick={() => toggleAllergen(a)}

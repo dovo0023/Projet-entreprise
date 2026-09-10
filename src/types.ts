@@ -30,7 +30,10 @@ export interface UserProfile {
   goal: Goal
   dietType: DietType
   allergens: string[]
-  plan: 'Gratuit' | 'Starter' | 'Pro' | 'Ultra'
+  /** Aliments non appréciés (texte libre) : préférence, pas une contre-indication — n'exclut jamais une
+   *  recette si ça viderait le créneau, contrairement aux allergènes (voir `isEligible` dans planner.ts). */
+  dislikedFoods: string[]
+  plan: 'Starter' | 'Pro' | 'Ultra'
 }
 
 /** Une autre personne du foyer partageant les repas, avec son propre objectif, régime et allergies. */
@@ -40,6 +43,7 @@ export interface HouseholdMember {
   goal: Goal
   dietType: DietType
   allergens: string[]
+  dislikedFoods: string[]
 }
 
 export interface MacroTargets {
@@ -93,15 +97,11 @@ export interface RecipeTemplate {
 
 export interface PlannerConstraints {
   timeBand: TimeBand | null // null = peu importe
-  snacks: { enabled: boolean; timing: SnackTiming }
   weeklyBudget: number | null
-  macroFocus: 'equilibre' | 'riche_proteines'
-  /** Nombre de fois par semaine où on cuisine réellement à midi/le soir (1-7). En dessous de 7, la même
-   *  recette est reconduite sur plusieurs jours consécutifs (cuisine en lot, ex. 1 kg de poulet pour
-   *  plusieurs repas d'affilée au lieu de cuisiner chaque jour). */
-  cookingSessions: { midi: number; soir: number }
-  /** Parmi ces sessions, combien doivent être un plat chaud (le reste froid) ; null = pas de préférence. */
-  hotSessions: { midi: number | null; soir: number | null }
+  /** Encas du jour, réglable jour par jour : null = pas d'encas ce jour-là. */
+  snacksByDay: Record<number, SnackTiming | null>
+  /** Répartition chaud/froid pour midi et soir, réglable jour par jour ; null = pas de préférence. */
+  hotColdByDay: Record<number, { midi: Temperature | null; soir: Temperature | null }>
 }
 
 export interface ShoppingItem {

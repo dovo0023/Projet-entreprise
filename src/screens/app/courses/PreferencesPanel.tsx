@@ -1,24 +1,17 @@
-import { Clock, Flame, Wallet, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useMemo } from 'react'
 import { useApp } from '../../../context/AppContext'
 import { Button } from '../../../components/ui'
-import CookingSessionsFields from './CookingSessionsFields'
+import BudgetField from './BudgetField'
 import DaySlotsGrid from './DaySlotsGrid'
 import EncasField from './EncasField'
+import HotColdField from './HotColdField'
 import { toSlotsByDay } from './mealNeedsUtils'
 import type { SlotsValue } from './SlotsField'
-import type { TimeBand } from '../../../types'
-
-const TIME_OPTIONS: { value: TimeBand | null; label: string }[] = [
-  { value: null, label: 'Peu importe' },
-  { value: 'court', label: '< 15 min' },
-  { value: 'moyen', label: '15 – 30 min' },
-  { value: 'long', label: '30 min +' },
-]
+import TimeBandField from './TimeBandField'
 
 export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
-  const { constraints, setConstraints, applyPreferences, mealNeeds, applyDaySlotSelection } = useApp()
-  const budgetActive = constraints.weeklyBudget != null
+  const { applyPreferences, mealNeeds, applyDaySlotSelection } = useApp()
   const slotsByDay = useMemo(() => toSlotsByDay(mealNeeds), [mealNeeds])
 
   function toggleSlot(day: number, key: keyof SlotsValue) {
@@ -42,76 +35,9 @@ export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-5 flex flex-col gap-7">
         <DaySlotsGrid value={slotsByDay} onToggle={toggleSlot} />
         <EncasField />
-        <CookingSessionsFields />
-
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Clock size={15} className="text-leaf-600" />
-            <p className="text-[13px] font-bold text-ink uppercase tracking-wide">Temps de préparation</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {TIME_OPTIONS.map((opt) => (
-              <button
-                key={opt.label}
-                onClick={() => setConstraints({ timeBand: opt.value })}
-                className={`tap px-3.5 py-2 rounded-full text-[12.5px] font-bold border ${
-                  constraints.timeBand === opt.value ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Wallet size={15} className="text-leaf-600" />
-              <p className="text-[13px] font-bold text-ink uppercase tracking-wide">Budget</p>
-            </div>
-            <button
-              onClick={() => setConstraints({ weeklyBudget: budgetActive ? null : 50 })}
-              className={`tap px-3.5 py-1.5 rounded-full text-[12px] font-bold ${budgetActive ? 'bg-leaf-500 text-white' : 'bg-black/5 text-ink-soft'}`}
-            >
-              {budgetActive ? 'Maîtrisé' : 'Libre'}
-            </button>
-          </div>
-          {budgetActive && (
-            <div className="fade-up">
-              <div className="flex justify-between text-[12px] mb-1.5">
-                <span className="font-semibold text-ink-soft">Budget hebdomadaire max</span>
-                <span className="font-extrabold text-ink">{constraints.weeklyBudget} €</span>
-              </div>
-              <input
-                type="range"
-                min={25}
-                max={90}
-                step={5}
-                value={constraints.weeklyBudget ?? 50}
-                onChange={(e) => setConstraints({ weeklyBudget: Number(e.target.value) })}
-                className="w-full accent-leaf-500"
-              />
-            </div>
-          )}
-        </section>
-
-        <section>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Flame size={15} className="text-leaf-600" />
-              <p className="text-[13px] font-bold text-ink uppercase tracking-wide">Profil nutritionnel</p>
-            </div>
-            <button
-              onClick={() => setConstraints({ macroFocus: constraints.macroFocus === 'riche_proteines' ? 'equilibre' : 'riche_proteines' })}
-              className={`tap px-3.5 py-1.5 rounded-full text-[12px] font-bold ${
-                constraints.macroFocus === 'riche_proteines' ? 'bg-leaf-500 text-white' : 'bg-black/5 text-ink-soft'
-              }`}
-            >
-              {constraints.macroFocus === 'riche_proteines' ? 'Riche en protéines' : 'Équilibré'}
-            </button>
-          </div>
-        </section>
+        <HotColdField />
+        <TimeBandField />
+        <BudgetField />
       </div>
 
       <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-3 shrink-0 border-t border-black/5">
