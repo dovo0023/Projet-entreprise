@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react'
+import { ChevronDown, Sparkles, SlidersHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import { useApp } from '../../../context/AppContext'
 import { Button } from '../../../components/ui'
@@ -17,6 +17,7 @@ import TimeBandField from './TimeBandField'
 export default function CoursesIntroWizard({ onDone }: { onDone: () => void }) {
   const { mealNeeds, applyDaySlotSelection } = useApp()
   const [slotsByDay, setSlotsByDay] = useState<Record<number, SlotsValue>>(() => toSlotsByDay(mealNeeds))
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   function toggleSlot(day: number, key: keyof SlotsValue) {
     setSlotsByDay((prev) => ({ ...prev, [day]: { ...prev[day], [key]: !prev[day][key] } }))
@@ -47,10 +48,31 @@ export default function CoursesIntroWizard({ onDone }: { onDone: () => void }) {
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-4 flex flex-col gap-7">
         <DaySlotsGrid value={slotsByDay} onToggle={toggleSlot} />
-        <EncasField />
-        <HotColdField />
-        <TimeBandField />
-        <BudgetField />
+
+        <div>
+          <button
+            onClick={() => setAdvancedOpen((v) => !v)}
+            className="tap w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-black/[0.03]"
+          >
+            <span className="flex items-center gap-2">
+              <SlidersHorizontal size={15} className="text-leaf-600" />
+              <span className="text-left">
+                <span className="block text-[13px] font-bold text-ink">Affiner mes préférences</span>
+                <span className="block text-[11.5px] text-ink-soft/60">Encas, chaud/froid, temps de préparation, budget</span>
+              </span>
+            </span>
+            <ChevronDown size={16} className={`text-ink-soft/50 shrink-0 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {advancedOpen && (
+            <div className="flex flex-col gap-7 mt-5 fade-up">
+              <EncasField />
+              <HotColdField />
+              <TimeBandField />
+              <BudgetField />
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-2 shrink-0 border-t border-black/5 flex flex-col gap-2.5">
