@@ -121,6 +121,9 @@ export interface Store {
   logo: string
   priceMultiplier: number
   deliveryModes: DeliveryMode[]
+  /** Site officiel du service drive de l'enseigne (pour "Envoyer vers le Drive") — absent si l'enseigne
+   *  n'a pas de service de courses en ligne dédié connu. */
+  driveUrl?: string
 }
 
 export interface WeightEntry {
