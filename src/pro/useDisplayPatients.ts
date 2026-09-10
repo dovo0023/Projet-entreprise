@@ -12,7 +12,7 @@ import { usePro } from './ProContext'
  */
 export function useDisplayPatients(): PatientSummary[] {
   const { profile, targets, consumed, personalRecords, messages: liveMessages } = useApp()
-  const { messagesByPatient, prescriptionOverrides, portfolioPatientIds } = usePro()
+  const { messagesByPatient, prescriptionOverrides, portfolioPatientIds, practitionerBiometrics } = usePro()
 
   return useMemo(
     () =>
@@ -22,17 +22,22 @@ export function useDisplayPatients(): PatientSummary[] {
             ...p,
             name: `${profile.firstName} Delvaux`,
             goal: profile.goal,
+            dietType: profile.dietType,
             allergens: profile.allergens,
             targets,
             actualToday: consumed,
+            weightHistory: personalRecords[SELF_RECORD_ID]?.weightHistory ?? p.weightHistory,
             journalEntries: personalRecords[SELF_RECORD_ID]?.journalEntries ?? p.journalEntries,
             messages: liveMessages,
           }
         }
         const messages = messagesByPatient[p.id] ?? p.messages
         const override = prescriptionOverrides[p.id]
-        return override ? { ...p, goal: override.goal, allergens: override.allergens, messages } : { ...p, messages }
+        const weightHistory = [...p.weightHistory, ...(practitionerBiometrics[p.id] ?? [])]
+        return override
+          ? { ...p, goal: override.goal, dietType: override.dietType, allergens: override.allergens, weightHistory, messages }
+          : { ...p, weightHistory, messages }
       }),
-    [profile, targets, consumed, personalRecords, liveMessages, messagesByPatient, prescriptionOverrides, portfolioPatientIds],
+    [profile, targets, consumed, personalRecords, liveMessages, messagesByPatient, prescriptionOverrides, portfolioPatientIds, practitionerBiometrics],
   )
 }

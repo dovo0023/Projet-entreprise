@@ -22,6 +22,7 @@ import type {
   SnackTiming,
   Temperature,
   UserProfile,
+  WeightEntry,
 } from '../types'
 import {
   aggregateAllergens,
@@ -45,7 +46,7 @@ import { ADHERENCE_HISTORY, generatePersonalHistory, SELF_JOURNAL_ENTRIES, WEIGH
 export const SELF_RECORD_ID = 'self'
 
 /** La maquette se déroule toujours "aujourd'hui" lundi 1er septembre : une pesée du jour porte cette date. */
-const TODAY_LABEL = '01/09'
+export const TODAY_LABEL = '01/09'
 
 export const DEFAULT_PROFILE: UserProfile = {
   firstName: 'Camille',
@@ -86,7 +87,7 @@ export const DEFAULT_CONSTRAINTS: PlannerConstraints = {
 /** Par défaut on suppose tout l'équipement disponible : l'utilisateur décoche ce qu'il n'a pas. */
 export const DEFAULT_KITCHEN_EQUIPMENT: KitchenEquipment[] = ['four', 'micro_ondes', 'airfryer', 'blender']
 
-export const PATIENT_SHARE_CODE = 'NF-72K9'
+export const PATIENT_SHARE_CODE = 'ND-72K9'
 
 export type CourseStep = 'menu' | 'ingredients' | 'store'
 
@@ -199,7 +200,12 @@ interface AppState {
   removeHouseholdMember: (id: string) => void
 
   personalRecords: Record<string, PersonalRecord>
-  logWeight: (personId: string, weight: number) => void
+  logWeight: (
+    personId: string,
+    weight: number,
+    extra?: Partial<Pick<WeightEntry, 'bodyFatPercent' | 'muscleMassKg' | 'waterPercent'>>,
+    date?: string,
+  ) => void
   addJournalEntry: (personId: string, entry: Omit<JournalEntry, 'id'>) => void
   removeJournalEntry: (personId: string, entryId: string) => void
 
@@ -436,16 +442,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     regenerateForHousehold(next)
   }
 
-  /** Ajoute (ou met à jour si déjà loggé aujourd'hui) la pesée d'une personne du foyer dans son propre historique. */
-  function logWeight(personId: string, weight: number) {
+  /** Ajoute (ou met à jour si déjà loggé le même jour) la pesée d'une personne du foyer dans son propre
+   *  historique. `extra` porte les mesures complémentaires d'une balance connectée (masse grasse, masse
+   *  musculaire, eau) — utilisé par le praticien lors d'une consultation ; `date` par défaut "aujourd'hui". */
+  function logWeight(
+    personId: string,
+    weight: number,
+    extra?: Partial<Pick<WeightEntry, 'bodyFatPercent' | 'muscleMassKg' | 'waterPercent'>>,
+    date: string = TODAY_LABEL,
+  ) {
     setPersonalRecords((prev) => {
       const record = prev[personId]
       if (!record) return prev
       const last = record.weightHistory[record.weightHistory.length - 1]
       const weightHistory =
-        last?.date === TODAY_LABEL
-          ? record.weightHistory.map((w, i) => (i === record.weightHistory.length - 1 ? { ...w, weight } : w))
-          : [...record.weightHistory, { date: TODAY_LABEL, weight }]
+        last?.date === date
+          ? record.weightHistory.map((w, i) => (i === record.weightHistory.length - 1 ? { ...w, weight, ...extra } : w))
+          : [...record.weightHistory, { date, weight, ...extra }]
       return { ...prev, [personId]: { ...record, weightHistory } }
     })
   }

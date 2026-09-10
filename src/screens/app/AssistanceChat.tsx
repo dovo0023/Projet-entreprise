@@ -65,7 +65,7 @@ function findAnswer(question: string): string {
  *  pas d'une vraie IA conversationnelle. */
 export default function AssistanceChat() {
   const [bubbles, setBubbles] = useState<Bubble[]>([
-    { from: 'bot', text: 'Bonjour 👋 Posez-moi une question sur l’utilisation de NutriFlow, ou choisissez une suggestion ci-dessous.' },
+    { from: 'bot', text: 'Bonjour 👋 Posez-moi une question sur l’utilisation de NutriDrive, ou choisissez une suggestion ci-dessous.' },
   ])
   const [input, setInput] = useState('')
 

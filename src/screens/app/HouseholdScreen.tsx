@@ -2,7 +2,7 @@ import { ArrowLeft, Check, ChevronDown, Pencil, Plus, Trash2, User, X } from 'lu
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
-import { ALLERGEN_OPTIONS, DIETARY_FLAG_OPTIONS } from '../../data/mock'
+import { ALLERGEN_OPTIONS, DIETARY_FLAG_OPTIONS, DIET_LABEL, DIET_OPTIONS } from '../../data/mock'
 import { Button, Card, SectionTitle } from '../../components/ui'
 import HouseholdProgress from './HouseholdProgress'
 import type { DietType, Goal, HouseholdMember, KitchenEquipment } from '../../types'
@@ -19,20 +19,6 @@ const GOAL_LABEL: Record<Goal, string> = {
   seche: 'Perte de gras / Sèche',
   maintien: 'Maintien',
   prise_de_masse: 'Prise de masse',
-}
-
-const DIET_OPTIONS: { value: DietType; label: string; hint: string }[] = [
-  { value: 'omnivore', label: 'Omnivore', hint: 'Aucune restriction' },
-  { value: 'pescetarien', label: 'Pescétarien', hint: 'Pas de viande, poisson autorisé' },
-  { value: 'vegetarien', label: 'Végétarien', hint: 'Ni viande ni poisson' },
-  { value: 'vegetalien', label: 'Végétalien', hint: 'Aucun produit animal' },
-]
-
-const DIET_LABEL: Record<DietType, string> = {
-  omnivore: 'Omnivore',
-  pescetarien: 'Pescétarien',
-  vegetarien: 'Végétarien',
-  vegetalien: 'Végétalien',
 }
 
 const EQUIPMENT_OPTIONS: { value: KitchenEquipment; label: string; hint: string }[] = [

@@ -1,4 +1,4 @@
-import type { AdherenceEntry, Goal, JournalEntry, PersonalRecord, WeightEntry } from '../types'
+import type { AdherenceEntry, DietType, Goal, JournalEntry, PersonalRecord, WeightEntry } from '../types'
 
 export const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 
@@ -84,3 +84,17 @@ export const ALLERGEN_OPTIONS = [
 ]
 
 export const DIETARY_FLAG_OPTIONS = ['Diabète (contrôle glycémique)']
+
+export const DIET_OPTIONS: { value: DietType; label: string; hint: string }[] = [
+  { value: 'omnivore', label: 'Omnivore', hint: 'Aucune restriction' },
+  { value: 'pescetarien', label: 'Pescétarien', hint: 'Pas de viande, poisson autorisé' },
+  { value: 'vegetarien', label: 'Végétarien', hint: 'Ni viande ni poisson' },
+  { value: 'vegetalien', label: 'Végétalien', hint: 'Aucun produit animal' },
+]
+
+export const DIET_LABEL: Record<DietType, string> = {
+  omnivore: 'Omnivore',
+  pescetarien: 'Pescétarien',
+  vegetarien: 'Végétarien',
+  vegetalien: 'Végétalien',
+}

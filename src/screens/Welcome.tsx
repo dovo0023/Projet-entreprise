@@ -15,7 +15,7 @@ export default function Welcome() {
         <div className="w-20 h-20 rounded-3xl bg-ink text-cream flex items-center justify-center text-3xl font-black mb-6 shadow-lg shadow-black/10">
           N
         </div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-ink">NutriFlow</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-ink">NutriDrive</h1>
         <p className="mt-3 text-[15px] text-ink-soft leading-relaxed max-w-[280px]">
           Votre nutrition sur mesure, livrée dans votre coffre.
         </p>

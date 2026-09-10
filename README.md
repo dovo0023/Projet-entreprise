@@ -1,4 +1,4 @@
-# NutriFlow — Maquette applicative
+# NutriDrive — Maquette applicative
 
 Maquette cliquable (web, pensée mobile-first) de l'application de nutrition personnalisée : du calcul métabolique à la commande des courses en click & collect / Drive.
 

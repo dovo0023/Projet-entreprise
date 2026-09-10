@@ -29,7 +29,7 @@ export default function ProfileScreen() {
           </div>
           <div>
             <p className="font-extrabold text-ink text-[16px]">{profile.firstName}</p>
-            <p className="text-[12px] text-ink-soft/60">{profile.email || 'email@nutriflow.app'}</p>
+            <p className="text-[12px] text-ink-soft/60">{profile.email || 'email@nutridrive.app'}</p>
           </div>
         </Card>
 

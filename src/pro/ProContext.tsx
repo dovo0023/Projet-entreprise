@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { useApp, PATIENT_SHARE_CODE } from '../context/AppContext'
+import { SELF_RECORD_ID, useApp, PATIENT_SHARE_CODE } from '../context/AppContext'
 import { PATIENTS } from '../data/patients'
-import type { ChatMessage, Goal } from '../types'
+import type { ChatMessage, DietType, Goal, WeightEntry } from '../types'
 
 const LINKED_PATIENT_ID = 'camille'
 
 interface PrescriptionOverride {
   goal: Goal
+  dietType: DietType
   allergens: string[]
 }
 
@@ -17,6 +18,8 @@ interface ProState {
   updatePrescription: (patientId: string, override: PrescriptionOverride) => void
   portfolioPatientIds: string[]
   addPatientByCode: (code: string) => { success: boolean; patientName?: string; alreadyAdded?: boolean }
+  practitionerBiometrics: Record<string, WeightEntry[]>
+  addBiometricEntry: (patientId: string, entry: WeightEntry) => void
 }
 
 const ProContext = createContext<ProState | null>(null)
@@ -27,6 +30,7 @@ interface PersistedProState {
   messagesByPatient: Record<string, ChatMessage[]>
   prescriptionOverrides: Record<string, PrescriptionOverride>
   portfolioPatientIds: string[]
+  practitionerBiometrics: Record<string, WeightEntry[]>
 }
 
 function loadPersisted(): Partial<PersistedProState> | null {
@@ -39,7 +43,7 @@ function loadPersisted(): Partial<PersistedProState> | null {
 }
 
 export function ProProvider({ children }: { children: ReactNode }) {
-  const { sendMessage: sendMessageToApp } = useApp()
+  const { sendMessage: sendMessageToApp, logWeight } = useApp()
   const [persisted] = useState(() => loadPersisted())
 
   const [messagesByPatient, setMessagesByPatient] = useState<Record<string, ChatMessage[]>>(
@@ -53,15 +57,20 @@ export function ProProvider({ children }: { children: ReactNode }) {
   const [portfolioPatientIds, setPortfolioPatientIds] = useState<string[]>(
     () => persisted?.portfolioPatientIds ?? PATIENTS.filter((p) => p.id !== LINKED_PATIENT_ID).map((p) => p.id),
   )
+  // Mesures ajoutées par le praticien pour les patientes de démo (pas de vrai profil à mettre à jour) ;
+  // pour la patiente liée à l'app, `addBiometricEntry` écrit directement dans son historique réel (voir plus bas).
+  const [practitionerBiometrics, setPractitionerBiometrics] = useState<Record<string, WeightEntry[]>>(
+    persisted?.practitionerBiometrics ?? {},
+  )
 
   useEffect(() => {
     try {
-      const payload: PersistedProState = { messagesByPatient, prescriptionOverrides, portfolioPatientIds }
+      const payload: PersistedProState = { messagesByPatient, prescriptionOverrides, portfolioPatientIds, practitionerBiometrics }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
     } catch {
       // Stockage indisponible : la session continue simplement en mémoire.
     }
-  }, [messagesByPatient, prescriptionOverrides, portfolioPatientIds])
+  }, [messagesByPatient, prescriptionOverrides, portfolioPatientIds, practitionerBiometrics])
 
   function sendMessage(patientId: string, text: string) {
     if (patientId === LINKED_PATIENT_ID) {
@@ -76,6 +85,22 @@ export function ProProvider({ children }: { children: ReactNode }) {
     setPrescriptionOverrides((prev) => ({ ...prev, [patientId]: override }))
   }
 
+  /** Ajoute une mesure (pesée + éventuelles données de balance connectée) prise par le praticien en
+   *  consultation. Pour la patiente liée à l'app, ça écrit directement dans son vrai historique (visible
+   *  aussi de son côté dans Foyer > Progression) ; pour les patientes de démo, dans le store local du Pro. */
+  function addBiometricEntry(patientId: string, entry: WeightEntry) {
+    if (patientId === LINKED_PATIENT_ID) {
+      logWeight(
+        SELF_RECORD_ID,
+        entry.weight,
+        { bodyFatPercent: entry.bodyFatPercent, muscleMassKg: entry.muscleMassKg, waterPercent: entry.waterPercent },
+        entry.date,
+      )
+      return
+    }
+    setPractitionerBiometrics((prev) => ({ ...prev, [patientId]: [...(prev[patientId] ?? []), entry] }))
+  }
+
   function addPatientByCode(code: string): { success: boolean; patientName?: string; alreadyAdded?: boolean } {
     const normalized = code.trim().toUpperCase()
     if (normalized !== PATIENT_SHARE_CODE) return { success: false }
@@ -86,7 +111,16 @@ export function ProProvider({ children }: { children: ReactNode }) {
 
   return (
     <ProContext.Provider
-      value={{ messagesByPatient, sendMessage, prescriptionOverrides, updatePrescription, portfolioPatientIds, addPatientByCode }}
+      value={{
+        messagesByPatient,
+        sendMessage,
+        prescriptionOverrides,
+        updatePrescription,
+        portfolioPatientIds,
+        addPatientByCode,
+        practitionerBiometrics,
+        addBiometricEntry,
+      }}
     >
       {children}
     </ProContext.Provider>

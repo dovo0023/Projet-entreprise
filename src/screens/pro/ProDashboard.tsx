@@ -82,7 +82,7 @@ export default function ProDashboard() {
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="Ex : NF-72K9"
+              placeholder="Ex : ND-72K9"
               className="rounded-2xl border border-black/10 px-4 py-2.5 text-[14px] font-mono tracking-wide outline-none focus:border-leaf-500"
             />
           </label>

@@ -32,7 +32,7 @@ export default function AccueilScreen() {
     <div className="flex-1 flex flex-col overflow-hidden relative">
       <div className="flex-1 overflow-y-auto no-scrollbar">
         <div className="px-5 pt-5 pb-2">
-          <h1 className="text-xl font-extrabold text-ink">Bienvenue sur NutriFlow</h1>
+          <h1 className="text-xl font-extrabold text-ink">Bienvenue sur NutriDrive</h1>
           <p className="text-[13px] text-ink-soft mt-1">
             Votre nutrition personnalisée : un menu généré pour vous, une liste de courses prête, et un accompagnement
             professionnel si vous en avez besoin.

@@ -126,6 +126,11 @@ export interface Store {
 export interface WeightEntry {
   date: string
   weight: number
+  /** Mesures complémentaires d'une balance à impédancemétrie, ajoutées par le praticien lors d'une
+   *  consultation (facultatives — une pesée simple ne renseigne que le poids). */
+  bodyFatPercent?: number
+  muscleMassKg?: number
+  waterPercent?: number
 }
 
 export interface AdherenceEntry {
@@ -204,6 +209,7 @@ export interface PatientSummary {
   id: string
   name: string
   goal: Goal
+  dietType: DietType
   allergens: string[]
   targets: MacroTargets
   actualToday: MacroTargets

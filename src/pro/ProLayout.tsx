@@ -17,7 +17,7 @@ export default function ProLayout() {
         <div className="flex items-center gap-2.5 mb-8">
           <div className="w-9 h-9 rounded-xl bg-cream text-ink flex items-center justify-center font-black">N</div>
           <div>
-            <p className="font-extrabold leading-none">NutriFlow</p>
+            <p className="font-extrabold leading-none">NutriDrive</p>
             <p className="text-[11px] text-cream/50 leading-none mt-0.5">Espace praticien</p>
           </div>
         </div>

@@ -1,14 +1,14 @@
-import { AlertTriangle, ArrowLeft, Book, Check, Send, Smartphone } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Book, Check, Plus, Scale, Send, Smartphone } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { useApp } from '../../context/AppContext'
-import { ALLERGEN_OPTIONS, DIETARY_FLAG_OPTIONS } from '../../data/mock'
+import { TODAY_LABEL, useApp } from '../../context/AppContext'
+import { ALLERGEN_OPTIONS, DIETARY_FLAG_OPTIONS, DIET_OPTIONS } from '../../data/mock'
 import { PatientAvatar } from '../../pro/ProLayout'
 import { usePro } from '../../pro/ProContext'
 import { useDisplayPatients } from '../../pro/useDisplayPatients'
-import { MacroBar } from '../../components/ui'
-import type { Goal, JournalSlot } from '../../types'
+import { Button, MacroBar } from '../../components/ui'
+import type { DietType, Goal, JournalSlot, WeightEntry } from '../../types'
 
 const JOURNAL_SLOT_LABEL: Record<JournalSlot, string> = {
   'petit-dejeuner': 'Petit-déjeuner',
@@ -28,21 +28,31 @@ export default function ProPatientDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const patients = useDisplayPatients()
-  const { setProfile } = useApp()
-  const { updatePrescription, sendMessage } = usePro()
+  const { updateSelfDietaryProfile } = useApp()
+  const { updatePrescription, sendMessage, addBiometricEntry } = usePro()
 
   const patient = patients.find((p) => p.id === id)
 
   const [draftGoal, setDraftGoal] = useState<Goal | null>(null)
+  const [draftDietType, setDraftDietType] = useState<DietType | null>(null)
   const [draftAllergens, setDraftAllergens] = useState<string[] | null>(null)
   const [justSaved, setJustSaved] = useState(false)
   const [messageText, setMessageText] = useState('')
 
+  const [bioDate, setBioDate] = useState(TODAY_LABEL)
+  const [bioWeight, setBioWeight] = useState('')
+  const [bioFat, setBioFat] = useState('')
+  const [bioMuscle, setBioMuscle] = useState('')
+  const [bioWater, setBioWater] = useState('')
+  const [bioSaved, setBioSaved] = useState(false)
+
   if (!patient) return <Navigate to="/pro" replace />
 
   const goal = draftGoal ?? patient.goal
+  const dietType = draftDietType ?? patient.dietType
   const allergens = draftAllergens ?? patient.allergens
-  const isDirty = draftGoal !== null || draftAllergens !== null
+  const isDirty = draftGoal !== null || draftDietType !== null || draftAllergens !== null
+  const latestBiometric = [...patient.weightHistory].reverse().find((w) => w.bodyFatPercent != null || w.muscleMassKg != null || w.waterPercent != null)
 
   function toggleAllergen(a: string) {
     const base = draftAllergens ?? patient!.allergens
@@ -51,11 +61,12 @@ export default function ProPatientDetail() {
 
   function validatePrescription() {
     if (patient!.linkedToApp) {
-      setProfile({ goal, allergens })
+      updateSelfDietaryProfile({ goal, dietType, allergens })
     } else {
-      updatePrescription(patient!.id, { goal, allergens })
+      updatePrescription(patient!.id, { goal, dietType, allergens })
     }
     setDraftGoal(null)
+    setDraftDietType(null)
     setDraftAllergens(null)
     setJustSaved(true)
     setTimeout(() => setJustSaved(false), 3000)
@@ -65,6 +76,25 @@ export default function ProPatientDetail() {
     if (!messageText.trim()) return
     sendMessage(patient!.id, messageText.trim())
     setMessageText('')
+  }
+
+  function submitBiometrics() {
+    const weight = parseFloat(bioWeight.replace(',', '.'))
+    if (!Number.isFinite(weight)) return
+    const entry: WeightEntry = { date: bioDate.trim() || TODAY_LABEL, weight }
+    const fat = parseFloat(bioFat.replace(',', '.'))
+    if (Number.isFinite(fat)) entry.bodyFatPercent = fat
+    const muscle = parseFloat(bioMuscle.replace(',', '.'))
+    if (Number.isFinite(muscle)) entry.muscleMassKg = muscle
+    const water = parseFloat(bioWater.replace(',', '.'))
+    if (Number.isFinite(water)) entry.waterPercent = water
+    addBiometricEntry(patient!.id, entry)
+    setBioWeight('')
+    setBioFat('')
+    setBioMuscle('')
+    setBioWater('')
+    setBioSaved(true)
+    setTimeout(() => setBioSaved(false), 3000)
   }
 
   return (
@@ -134,6 +164,104 @@ export default function ProPatientDetail() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+            {latestBiometric && (
+              <div className="flex gap-2 mt-3 pt-3 border-t border-black/5">
+                {latestBiometric.bodyFatPercent != null && (
+                  <div className="flex-1 bg-black/[0.03] rounded-xl px-3 py-2 text-center">
+                    <p className="text-[15px] font-extrabold text-ink">{latestBiometric.bodyFatPercent}%</p>
+                    <p className="text-[10px] text-ink-soft/60">Masse grasse</p>
+                  </div>
+                )}
+                {latestBiometric.muscleMassKg != null && (
+                  <div className="flex-1 bg-black/[0.03] rounded-xl px-3 py-2 text-center">
+                    <p className="text-[15px] font-extrabold text-ink">{latestBiometric.muscleMassKg} kg</p>
+                    <p className="text-[10px] text-ink-soft/60">Masse musculaire</p>
+                  </div>
+                )}
+                {latestBiometric.waterPercent != null && (
+                  <div className="flex-1 bg-black/[0.03] rounded-xl px-3 py-2 text-center">
+                    <p className="text-[15px] font-extrabold text-ink">{latestBiometric.waterPercent}%</p>
+                    <p className="text-[10px] text-ink-soft/60">Eau</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-3xl border border-black/5 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Scale size={14} className="text-leaf-600" />
+              <p className="text-[13px] font-bold text-ink-soft/70 uppercase tracking-wide">Ajouter une mesure (balance connectée)</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 mb-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold text-ink-soft">Date</span>
+                <input
+                  value={bioDate}
+                  onChange={(e) => setBioDate(e.target.value)}
+                  placeholder="ex. 02/09"
+                  className="rounded-xl border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-leaf-500"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold text-ink-soft">Poids (kg)</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={bioWeight}
+                  onChange={(e) => setBioWeight(e.target.value)}
+                  placeholder="ex. 74.5"
+                  className="rounded-xl border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-leaf-500"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold text-ink-soft">Masse grasse (%)</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={bioFat}
+                  onChange={(e) => setBioFat(e.target.value)}
+                  placeholder="facultatif"
+                  className="rounded-xl border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-leaf-500"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold text-ink-soft">Masse musculaire (kg)</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={bioMuscle}
+                  onChange={(e) => setBioMuscle(e.target.value)}
+                  placeholder="facultatif"
+                  className="rounded-xl border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-leaf-500"
+                />
+              </label>
+              <label className="flex flex-col gap-1 col-span-2">
+                <span className="text-[11px] font-bold text-ink-soft">Eau (%)</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={bioWater}
+                  onChange={(e) => setBioWater(e.target.value)}
+                  placeholder="facultatif"
+                  className="rounded-xl border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-leaf-500"
+                />
+              </label>
+            </div>
+            <Button full variant="dark" className="!py-2.5 text-[13px]" disabled={!bioWeight.trim()} onClick={submitBiometrics}>
+              {bioSaved ? (
+                <>
+                  <Check size={14} /> Mesure ajoutée
+                </>
+              ) : (
+                <>
+                  <Plus size={14} /> Ajouter la mesure
+                </>
+              )}
+            </Button>
+            {patient.linkedToApp && (
+              <p className="text-[11px] text-ink-soft/50 mt-2 text-center">Visible aussi côté patiente, dans Foyer &gt; Progression.</p>
+            )}
           </div>
 
           <div className="bg-white rounded-3xl border border-black/5 p-5">
@@ -191,6 +319,22 @@ export default function ProPatientDetail() {
                   }`}
                 >
                   {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <p className="text-[11.5px] font-bold text-ink-soft mb-1.5">Régime alimentaire</p>
+            <div className="flex flex-col gap-1.5 mb-4">
+              {DIET_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setDraftDietType(opt.value)}
+                  className={`tap text-left px-3 py-2 rounded-xl border ${
+                    dietType === opt.value ? 'border-leaf-500 bg-leaf-50' : 'border-black/10'
+                  }`}
+                >
+                  <p className={`text-[12.5px] font-semibold ${dietType === opt.value ? 'text-leaf-700' : 'text-ink-soft'}`}>{opt.label}</p>
+                  <p className="text-[11px] text-ink-soft/50">{opt.hint}</p>
                 </button>
               ))}
             </div>
