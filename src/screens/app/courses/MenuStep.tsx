@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../../../context/AppContext'
 import { WEEK_DAYS } from '../../../data/mock'
 import { Button, Card, Pill, SectionTitle } from '../../../components/ui'
-import { SHORT_DAYS } from './DaySlotsGrid'
+import WeekDayTabs from '../WeekDayTabs'
 import PreferencesPanel from './PreferencesPanel'
 import type { Meal } from '../../../types'
 
@@ -58,25 +58,7 @@ export default function MenuStep() {
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto no-scrollbar px-5 pb-3 shrink-0">
-        {WEEK_DAYS.map((dayName, idx) => {
-          const dayNum = idx + 1
-          const active = dayNum === selectedDay
-          return (
-            <button
-              key={dayNum}
-              onClick={() => setSelectedDay(dayNum)}
-              aria-label={dayName}
-              className={`tap shrink-0 flex flex-col items-center px-4 py-2 rounded-2xl border ${
-                active ? 'bg-ink text-cream border-ink' : 'bg-white text-ink-soft border-black/10'
-              }`}
-            >
-              <span className="text-[12.5px] font-bold">{SHORT_DAYS[idx]}</span>
-              <span className={`text-[10px] font-semibold ${active ? 'text-cream/60' : 'text-ink-soft/50'}`}>J{dayNum}</span>
-            </button>
-          )
-        })}
-      </div>
+      <WeekDayTabs selectedDay={selectedDay} onSelect={setSelectedDay} />
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-4 fade-up" key={selectedDay}>
         {nothingPlanned && (

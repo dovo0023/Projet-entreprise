@@ -1,7 +1,7 @@
 import { Moon, Sun, Sunrise } from 'lucide-react'
+import { SHORT_DAYS } from '../../../data/mock'
 import type { SlotsValue } from './SlotsField'
 
-export const SHORT_DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 export const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7]
 
 const SLOT_OPTIONS: { key: keyof SlotsValue; label: string; icon: typeof Sunrise }[] = [

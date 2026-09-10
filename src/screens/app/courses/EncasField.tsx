@@ -1,6 +1,6 @@
 import { Coffee, Sun, Sunrise } from 'lucide-react'
 import { useApp } from '../../../context/AppContext'
-import { SHORT_DAYS } from './DaySlotsGrid'
+import { SHORT_DAYS } from '../../../data/mock'
 import type { SnackTiming } from '../../../types'
 
 /** Un encas se règle jour par jour comme "matin ✕ après-midi" : les deux réglages combinés donnent la

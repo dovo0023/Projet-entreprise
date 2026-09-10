@@ -2,6 +2,8 @@ import type { AdherenceEntry, Goal, JournalEntry, PersonalRecord, WeightEntry } 
 
 export const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 
+export const SHORT_DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+
 export const WEIGHT_HISTORY: WeightEntry[] = [
   { date: '01/07', weight: 78.4 },
   { date: '08/07', weight: 77.9 },

@@ -1,6 +1,6 @@
 import { Flame, Snowflake, Thermometer } from 'lucide-react'
 import { useApp } from '../../../context/AppContext'
-import { SHORT_DAYS } from './DaySlotsGrid'
+import { SHORT_DAYS } from '../../../data/mock'
 import type { Temperature } from '../../../types'
 
 const SLOTS: { key: 'midi' | 'soir'; label: string }[] = [

@@ -213,6 +213,7 @@ interface AppState {
 
   mealNeeds: DayMealNeeds
   applyDaySlotSelection: (slotsByDay: Record<number, { matin: boolean; midi: boolean; soir: boolean }>) => void
+  applyCoursesIntro: (slotsByDay: Record<number, { matin: boolean; midi: boolean; soir: boolean }>) => void
   swapFreeMealWithDay: (freeDay: number, slot: PlannableSlot, targetDay: number) => void
 
   mealReserve: Meal[]
@@ -490,6 +491,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(weekPlan, next)), prev))
   }
 
+  /** Validation finale de l'assistant Courses : contrairement à `applyDaySlotSelection` (repas à prévoir
+   *  seuls), régénère aussi les recettes en une seule fois à partir des contraintes réglées pendant
+   *  l'assistant (encas, chaud/froid, temps, budget — déjà appliquées à `constraints` au fil des écrans).
+   *  Tout est calculé dans cette même fonction, à partir des valeurs fraîches du moment, pour éviter de
+   *  mélanger un ancien planning avec de nouveaux repas à prévoir (ou l'inverse) à cause d'un state React
+   *  pas encore mis à jour entre deux appels séparés. */
+  function applyCoursesIntro(slotsByDay: Record<number, { matin: boolean; midi: boolean; soir: boolean }>) {
+    const next: DayMealNeeds = {}
+    for (let day = 1; day <= 7; day++) {
+      next[day] = slotsByDay[day] ?? { matin: true, midi: true, soir: true }
+    }
+    regenSeed.current += 1
+    const plan = generateWeekPlan(targets, constraints, householdAllergens, householdDislikedFoods, requiredDiet, kitchenEquipment, regenSeed.current)
+
+    setMealNeeds(next)
+    setWeekPlan(plan)
+    setConsumedMealIds([])
+    setConsumed({ kcal: 0, protein: 0, carbs: 0, fat: 0 })
+    setShoppingList((prev) => mergeHaveAtHome(consolidateIngredients(shoppableMeals(plan, next)), prev))
+    setChosenStoreId(null)
+    setChosenDeliveryMode(null)
+    setOrderPlaced(false)
+  }
+
   /** Marque un repas prévu comme "libre" (Planning/Aujourd'hui) : son ingrédients ont déjà pu être achetés,
    *  donc la liste de courses n'est volontairement PAS recalculée ici — seul l'assistant Courses/Préférences
    *  (avant les courses) doit y toucher. Le repas part dans la réserve pour pouvoir être replacé sur un
@@ -743,6 +768,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         weekStats,
         mealNeeds,
         applyDaySlotSelection,
+        applyCoursesIntro,
         mealReserve,
         freeMealToReserve,
         assignReserveMealToDay,

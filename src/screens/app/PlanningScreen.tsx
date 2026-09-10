@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext'
 import { getRecipeTemplate } from '../../engine/planner'
 import { Card, Pill, SectionTitle } from '../../components/ui'
 import FreeMealCard from './FreeMealCard'
+import WeekDayTabs from './WeekDayTabs'
 import type { Meal, PlannableSlot } from '../../types'
 
 const SLOT_ORDER: Meal['slot'][] = ['petit-dejeuner', 'encas-matin', 'midi', 'encas-apresmidi', 'soir']
@@ -40,10 +41,13 @@ function mealNeedKey(slot: PlannableSlot): 'matin' | 'midi' | 'soir' {
 export default function PlanningScreen() {
   const { weekPlan, swapMeals, mealNeeds, freeMealToReserve, mealReserve, discardReserveMeal } = useApp()
   const [expandedMealId, setExpandedMealId] = useState<string | null>(null)
+  const [selectedDay, setSelectedDay] = useState(1)
+
+  const dayMeals = weekPlan.filter((m) => m.day === selectedDay).sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
 
   return (
-    <div className="flex-1 overflow-y-auto no-scrollbar">
-      <div className="px-5 pt-5 pb-2 flex items-center justify-between">
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="px-5 pt-5 pb-2 shrink-0 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-extrabold text-ink">Planning de la semaine</h1>
           <p className="text-[13px] text-ink-soft">Vue calendrier de vos 7 jours</p>
@@ -51,7 +55,7 @@ export default function PlanningScreen() {
       </div>
 
       {mealReserve.length > 0 && (
-        <div className="px-5 mt-4">
+        <div className="px-5 pb-3 shrink-0">
           <SectionTitle>
             <span className="flex items-center gap-1.5">
               <Archive size={13} /> Repas en réserve
@@ -88,88 +92,85 @@ export default function PlanningScreen() {
         </div>
       )}
 
-      <div className="px-5 mt-6 flex flex-col gap-6 pb-8">
-        {WEEK_DAYS.map((dayName, idx) => {
-          const dayNum = idx + 1
-          const dayMeals = weekPlan.filter((m) => m.day === dayNum).sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
-          if (dayMeals.length === 0) return null
-          return (
-            <div key={dayName}>
-              <SectionTitle>
-                {dayName} · Jour {dayNum}
-              </SectionTitle>
-              <div className="flex flex-col gap-2.5">
-                {dayMeals.map((meal) => {
-                  const isPlannable = PLANNABLE_SLOTS.includes(meal.slot)
-                  const needed = !isPlannable || (mealNeeds[meal.day]?.[mealNeedKey(meal.slot as PlannableSlot)] ?? true)
-                  if (isPlannable && !needed) {
-                    return <FreeMealCard key={meal.id} day={meal.day} slot={meal.slot as PlannableSlot} />
-                  }
+      <WeekDayTabs selectedDay={selectedDay} onSelect={setSelectedDay} />
 
-                  const fresh = freshnessLabel(meal.freshnessDay)
-                  const isOpen = expandedMealId === meal.id
-                  const otherDaysSameSlot = weekPlan.filter((m) => m.slot === meal.slot && m.id !== meal.id).sort((a, b) => a.day - b.day)
+      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-8 fade-up" key={selectedDay}>
+        <SectionTitle>
+          {WEEK_DAYS[selectedDay - 1]} · Jour {selectedDay}
+        </SectionTitle>
+        {dayMeals.length === 0 ? (
+          <p className="text-[13px] text-ink-soft/60 text-center py-8">Journée libre — rien de prévu ce jour-là.</p>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {dayMeals.map((meal) => {
+              const isPlannable = PLANNABLE_SLOTS.includes(meal.slot)
+              const needed = !isPlannable || (mealNeeds[meal.day]?.[mealNeedKey(meal.slot as PlannableSlot)] ?? true)
+              if (isPlannable && !needed) {
+                return <FreeMealCard key={meal.id} day={meal.day} slot={meal.slot as PlannableSlot} />
+              }
 
-                  return (
-                    <Card key={meal.id} className="!p-3">
-                      <div className="flex items-center gap-2">
-                        <button className="flex-1 min-w-0 flex items-center gap-3 text-left" onClick={() => setExpandedMealId(isOpen ? null : meal.id)}>
-                          <div className="w-11 h-11 rounded-xl bg-leaf-50 flex items-center justify-center text-xl shrink-0">{meal.image}</div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10.5px] font-bold text-leaf-600 uppercase tracking-wide">{SLOT_LABEL[meal.slot]}</p>
-                            <p className="font-bold text-ink text-[13.5px] truncate">{meal.name}</p>
-                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                              <Pill>
-                                <Timer size={10} /> {meal.prepTime} min
-                              </Pill>
-                              <Pill tone={fresh.tone}>{fresh.label}</Pill>
-                            </div>
-                          </div>
-                          <ArrowLeftRight size={15} className="text-ink-soft/40 shrink-0" />
-                        </button>
-                        {isPlannable && (
-                          <button
-                            onClick={() => freeMealToReserve(meal)}
-                            className="tap shrink-0 w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"
-                            aria-label="Marquer ce repas comme libre"
-                            title="Je ne prépare pas ce repas"
-                          >
-                            <UtensilsCrossed size={13} className="text-ink-soft/50" />
-                          </button>
-                        )}
-                      </div>
+              const fresh = freshnessLabel(meal.freshnessDay)
+              const isOpen = expandedMealId === meal.id
+              const otherDaysSameSlot = weekPlan.filter((m) => m.slot === meal.slot && m.id !== meal.id).sort((a, b) => a.day - b.day)
 
-                      {isOpen && (
-                        <div className="mt-3 pt-3 border-t border-black/5 fade-up flex flex-col gap-2.5">
-                          <p className="text-[11px] font-bold text-ink-soft/60 uppercase">Permuter avec un autre jour ({SLOT_LABEL[meal.slot].toLowerCase()})</p>
-                          <div className="flex flex-col gap-1.5">
-                            {otherDaysSameSlot.map((other) => {
-                              const risky = isRiskySwapTarget(meal, other.day) || isRiskySwapTarget(other, meal.day)
-                              return (
-                                <button
-                                  key={other.id}
-                                  onClick={() => {
-                                    swapMeals(meal.id, other.id)
-                                    setExpandedMealId(null)
-                                  }}
-                                  className="tap flex items-center gap-2.5 bg-black/[0.03] rounded-2xl px-3 py-2 text-left"
-                                >
-                                  <span className="text-[11px] font-bold text-ink-soft/60 w-16 shrink-0">{WEEK_DAYS[other.day - 1]}</span>
-                                  <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-ink truncate">{other.name}</span>
-                                  {risky && <AlertTriangle size={13} className="text-clementine-500 shrink-0" />}
-                                </button>
-                              )
-                            })}
-                          </div>
+              return (
+                <Card key={meal.id} className="!p-3">
+                  <div className="flex items-center gap-2">
+                    <button className="flex-1 min-w-0 flex items-center gap-3 text-left" onClick={() => setExpandedMealId(isOpen ? null : meal.id)}>
+                      <div className="w-11 h-11 rounded-xl bg-leaf-50 flex items-center justify-center text-xl shrink-0">{meal.image}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10.5px] font-bold text-leaf-600 uppercase tracking-wide">{SLOT_LABEL[meal.slot]}</p>
+                        <p className="font-bold text-ink text-[13.5px] truncate">{meal.name}</p>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <Pill>
+                            <Timer size={10} /> {meal.prepTime} min
+                          </Pill>
+                          <Pill tone={fresh.tone}>{fresh.label}</Pill>
                         </div>
-                      )}
-                    </Card>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
+                      </div>
+                      <ArrowLeftRight size={15} className="text-ink-soft/40 shrink-0" />
+                    </button>
+                    {isPlannable && (
+                      <button
+                        onClick={() => freeMealToReserve(meal)}
+                        className="tap shrink-0 w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"
+                        aria-label="Marquer ce repas comme libre"
+                        title="Je ne prépare pas ce repas"
+                      >
+                        <UtensilsCrossed size={13} className="text-ink-soft/50" />
+                      </button>
+                    )}
+                  </div>
+
+                  {isOpen && (
+                    <div className="mt-3 pt-3 border-t border-black/5 fade-up flex flex-col gap-2.5">
+                      <p className="text-[11px] font-bold text-ink-soft/60 uppercase">Permuter avec un autre jour ({SLOT_LABEL[meal.slot].toLowerCase()})</p>
+                      <div className="flex flex-col gap-1.5">
+                        {otherDaysSameSlot.map((other) => {
+                          const risky = isRiskySwapTarget(meal, other.day) || isRiskySwapTarget(other, meal.day)
+                          return (
+                            <button
+                              key={other.id}
+                              onClick={() => {
+                                swapMeals(meal.id, other.id)
+                                setExpandedMealId(null)
+                              }}
+                              className="tap flex items-center gap-2.5 bg-black/[0.03] rounded-2xl px-3 py-2 text-left"
+                            >
+                              <span className="text-[11px] font-bold text-ink-soft/60 w-16 shrink-0">{WEEK_DAYS[other.day - 1]}</span>
+                              <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-ink truncate">{other.name}</span>
+                              {risky && <AlertTriangle size={13} className="text-clementine-500 shrink-0" />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )
