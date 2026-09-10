@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ExternalLink, MapPin, Package, Send, Sparkles, Truck } from 'lucide-react'
+import { Check, ChevronLeft, MapPin, Package, Sparkles, Truck } from 'lucide-react'
 import { useState } from 'react'
 import { useApp } from '../../../context/AppContext'
 import { STORES } from '../../../data/stores'
@@ -10,20 +10,9 @@ const MODE_LABEL: Record<DeliveryMode, string> = {
   click_collect_delivery: 'Click & Collect + Livraison',
 }
 
-/** Nom court d'une enseigne à partir du nom complet du magasin (ex. "Carrefour Market — Ixelles" → "Carrefour Market"). */
-function shortStoreName(fullName: string) {
-  return fullName.split(' — ')[0]
-}
-
 export default function StoreStep() {
   const { storeQuotes, setCourseStep, placeOrder, orderPlaced, chosenStoreId, chosenDeliveryMode, resetOrder } = useApp()
   const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null)
-  const [driveStatus, setDriveStatus] = useState<{ storeId: string; status: 'sending' | 'sent' } | null>(null)
-
-  function sendToDrive(storeId: string) {
-    setDriveStatus({ storeId, status: 'sending' })
-    setTimeout(() => setDriveStatus({ storeId, status: 'sent' }), 900)
-  }
 
   if (orderPlaced) {
     const store = STORES.find((s) => s.id === chosenStoreId)
@@ -88,58 +77,15 @@ export default function StoreStep() {
               </button>
 
               {expanded && (
-                <div className="mt-3 pt-3 border-t border-black/5 fade-up">
-                  {quote.store.driveUrl ? (
-                    driveStatus?.storeId === quote.store.id && driveStatus.status === 'sent' ? (
-                      <div className="bg-leaf-50 rounded-2xl p-3 fade-up">
-                        <p className="text-[12.5px] font-bold text-leaf-700 flex items-center gap-1.5">
-                          <Check size={14} /> Panier envoyé vers {shortStoreName(quote.store.name)} (démo)
-                        </p>
-                        <p className="text-[11.5px] text-ink-soft/70 mt-1">
-                          {quote.itemCount} article{quote.itemCount > 1 ? 's' : ''} · Simulation — cette maquette n'a pas d'accès à une vraie
-                          API {shortStoreName(quote.store.name)} pour remplir automatiquement un panier externe. Ouvrez leur site pour
-                          terminer vos courses.
-                        </p>
-                        <a
-                          href={quote.store.driveUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="tap mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-bold text-leaf-700 underline"
-                        >
-                          Ouvrir {shortStoreName(quote.store.name)} <ExternalLink size={12} />
-                        </a>
-                      </div>
-                    ) : (
-                      <Button
-                        full
-                        variant="dark"
-                        className="!py-2.5 text-[13px]"
-                        disabled={driveStatus?.storeId === quote.store.id && driveStatus.status === 'sending'}
-                        onClick={() => sendToDrive(quote.store.id)}
-                      >
-                        <Send size={14} />
-                        {driveStatus?.storeId === quote.store.id && driveStatus.status === 'sending'
-                          ? 'Envoi en cours…'
-                          : `Envoyer vers ${shortStoreName(quote.store.name)} Drive`}
-                      </Button>
-                    )
-                  ) : (
-                    <p className="text-[11.5px] text-ink-soft/50 italic mb-1">Pas de service drive en ligne pour cette enseigne.</p>
-                  )}
-
-                  <p className="text-[10.5px] text-ink-soft/40 uppercase tracking-wide font-bold mt-3 mb-1.5">
-                    Ou valider directement dans l'app
-                  </p>
-                  <div className="flex gap-2">
-                    <Button variant="secondary" className="flex-1 !py-2.5 text-[13px]" onClick={() => placeOrder(quote.store.id, 'click_collect')}>
-                      <Package size={14} /> Retrait en magasin
+                <div className="flex gap-2 mt-3 pt-3 border-t border-black/5 fade-up">
+                  <Button variant="secondary" className="flex-1 !py-2.5 text-[13px]" onClick={() => placeOrder(quote.store.id, 'click_collect')}>
+                    <Package size={14} /> Retrait en magasin
+                  </Button>
+                  {quote.store.deliveryModes.includes('click_collect_delivery') && (
+                    <Button className="flex-1 !py-2.5 text-[13px]" onClick={() => placeOrder(quote.store.id, 'click_collect_delivery')}>
+                      <Truck size={14} /> Livraison
                     </Button>
-                    {quote.store.deliveryModes.includes('click_collect_delivery') && (
-                      <Button className="flex-1 !py-2.5 text-[13px]" onClick={() => placeOrder(quote.store.id, 'click_collect_delivery')}>
-                        <Truck size={14} /> Livraison
-                      </Button>
-                    )}
-                  </div>
+                  )}
                 </div>
               )}
             </Card>
