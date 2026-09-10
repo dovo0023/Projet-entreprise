@@ -145,7 +145,7 @@ export default function CoursesIntroWizard({ onDone }: { onDone: () => void }) {
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-4 fade-up" key={step}>
         {step === 'repas' && <DaySlotsGrid value={slotsByDay} onToggle={toggleSlot} />}
-        {step === 'hotcold' && <HotColdField />}
+        {step === 'hotcold' && <HotColdField plannedSlots={slotsByDay} />}
         {step === 'encas-ask' && (
           <div className="flex flex-col gap-2.5">
             <ChoiceButton label="Oui" onClick={() => chooseEncas(true)} />

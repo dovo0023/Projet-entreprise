@@ -58,10 +58,12 @@ export default function PlanningScreen() {
         <div className="px-5 pb-3 shrink-0">
           <SectionTitle>
             <span className="flex items-center gap-1.5">
-              <Archive size={13} /> Repas en réserve
+              <Archive size={13} /> Repas en réserve ({mealReserve.length})
             </span>
           </SectionTitle>
-          <div className="flex flex-col gap-2 mb-2">
+          {/* Hauteur bornée + défilement interne : une réserve qui grossit ne doit jamais pousser les
+             onglets jour par jour et le contenu hors de l'écran (l'app devenait inutilisable sinon). */}
+          <div className="flex flex-col gap-2 mb-2 max-h-[184px] overflow-y-auto">
             {mealReserve.map((meal) => {
               const fresh = freshnessLabel(meal.freshnessDay)
               return (

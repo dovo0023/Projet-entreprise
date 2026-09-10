@@ -35,7 +35,7 @@ export default function PreferencesPanel({ onClose }: { onClose: () => void }) {
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-5 flex flex-col gap-7">
         <DaySlotsGrid value={slotsByDay} onToggle={toggleSlot} />
         <EncasField />
-        <HotColdField />
+        <HotColdField plannedSlots={slotsByDay} />
         <TimeBandField />
         <BudgetField />
       </div>
