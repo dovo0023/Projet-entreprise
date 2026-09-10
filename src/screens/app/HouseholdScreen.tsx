@@ -2,7 +2,7 @@ import { ArrowLeft, Check, ChevronDown, Pencil, Plus, Trash2, User, X } from 'lu
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
-import { ALLERGEN_OPTIONS, DIETARY_FLAG_OPTIONS, DIET_LABEL, DIET_OPTIONS } from '../../data/mock'
+import { ALLERGEN_OPTIONS, DIET_LABEL, DIET_OPTIONS } from '../../data/mock'
 import { Button, Card, SectionTitle } from '../../components/ui'
 import HouseholdProgress from './HouseholdProgress'
 import type { DietType, Goal, HouseholdMember, KitchenEquipment } from '../../types'
@@ -120,7 +120,7 @@ function MemberForm({
       <div>
         <p className="text-[12px] font-semibold text-ink-soft mb-2">Allergies / intolérances</p>
         <div className="flex flex-wrap gap-2">
-          {[...ALLERGEN_OPTIONS, ...DIETARY_FLAG_OPTIONS].map((a) => (
+          {ALLERGEN_OPTIONS.map((a) => (
             <button
               key={a}
               onClick={() => toggleAllergen(a)}

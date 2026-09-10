@@ -64,8 +64,7 @@ export function generatePersonalHistory(seedKey: string, goal: Goal): PersonalRe
 }
 
 /** Les 14 allergènes à déclaration obligatoire reconnus par la réglementation européenne (règlement UE
- *  1169/2011, annexe II). "Diabète" n'en fait pas partie — gardé à part, car c'est une contre-indication
- *  médicale (filtre les recettes à index glycémique élevé) et non un allergène. */
+ *  1169/2011, annexe II). Public visé sain (pas de contre-indication médicale type diabète à filtrer). */
 export const ALLERGEN_OPTIONS = [
   'Gluten',
   'Crustacés',
@@ -82,8 +81,6 @@ export const ALLERGEN_OPTIONS = [
   'Lupin',
   'Mollusques',
 ]
-
-export const DIETARY_FLAG_OPTIONS = ['Diabète (contrôle glycémique)']
 
 export const DIET_OPTIONS: { value: DietType; label: string; hint: string }[] = [
   { value: 'omnivore', label: 'Omnivore', hint: 'Aucune restriction' },

@@ -1,7 +1,7 @@
 import { ArrowLeft, Check, Flame, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ALLERGEN_OPTIONS, DIETARY_FLAG_OPTIONS } from '../data/mock'
+import { ALLERGEN_OPTIONS } from '../data/mock'
 import { computeBMR, computeTDEE, useApp } from '../context/AppContext'
 import { Button } from '../components/ui'
 import type { ActivityLevel, Goal, UserProfile } from '../types'
@@ -221,7 +221,7 @@ export default function Onboarding() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {[...ALLERGEN_OPTIONS, ...DIETARY_FLAG_OPTIONS].map((a) => (
+              {ALLERGEN_OPTIONS.map((a) => (
                 <button
                   key={a}
                   onClick={() => toggleAllergen(a)}

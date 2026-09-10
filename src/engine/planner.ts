@@ -13,8 +13,6 @@ import type {
   UserProfile,
 } from '../types'
 
-const DIABETES_TAG = 'Diabète (contrôle glycémique)'
-
 const DIET_RANK: Record<DietType, number> = { omnivore: 0, pescetarien: 1, vegetarien: 2, vegetalien: 3 }
 
 /** Le régime le plus restrictif parmi le profil et les membres du foyer : un menu partagé doit convenir à tout le monde. */
@@ -135,7 +133,6 @@ function hasEquipment(owned: KitchenEquipment[], tag: KitchenEquipment): boolean
 function isEligible(recipe: RecipeTemplate, allergens: string[], requiredDiet: DietType, ownedEquipment: KitchenEquipment[]): boolean {
   const hasForbiddenAllergen = recipe.allergenTags.some((tag) => allergens.includes(tag))
   if (hasForbiddenAllergen) return false
-  if (recipe.highGI && allergens.includes(DIABETES_TAG)) return false
   if (!recipe.dietTags.includes(requiredDiet)) return false
   if (!recipe.requiredEquipment.every((eq) => hasEquipment(ownedEquipment, eq))) return false
   return true

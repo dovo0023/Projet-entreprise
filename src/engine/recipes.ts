@@ -20,7 +20,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Lactose', 'Gluten'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: ['micro_ondes'],
-    highGI: false,
     image: '🥣',
     ingredients: [
       { name: 'Skyr nature', quantity: '200 g' },
@@ -44,7 +43,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Œufs', 'Gluten'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: [],
-    highGI: false,
     image: '🍳',
     ingredients: [
       { name: 'Œufs', quantity: '3' },
@@ -67,7 +65,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten', 'Arachides', 'Lactose'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: [],
-    highGI: true,
     image: '🥣',
     ingredients: [
       { name: 'Flocons d’avoine', quantity: '60 g' },
@@ -91,7 +88,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Lactose', 'Fruits à coque'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: [],
-    highGI: false,
     image: '🥣',
     ingredients: [
       { name: 'Cottage cheese', quantity: '200 g' },
@@ -114,7 +110,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Œufs', 'Lactose'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: ['blender'],
-    highGI: true,
     image: '🥞',
     ingredients: [
       { name: 'Œufs', quantity: '2' },
@@ -138,7 +133,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Œufs', 'Gluten'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: [],
-    highGI: false,
     image: '🥑',
     ingredients: [
       { name: 'Pain complet', quantity: '2 tranches' },
@@ -162,7 +156,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Lactose'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: ['blender'],
-    highGI: true,
     image: '🥭',
     ingredients: [
       { name: 'Mangue surgelée', quantity: '150 g' },
@@ -185,7 +178,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten', 'Soja'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     image: '🍅',
     ingredients: [
       { name: 'Pain complet', quantity: '2 tranches' },
@@ -208,7 +200,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten', 'Fruits à coque'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: true,
     image: '🥣',
     ingredients: [
       { name: 'Flocons d’avoine', quantity: '60 g' },
@@ -231,7 +222,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten', 'Soja'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     image: '🌱',
     ingredients: [
       { name: 'Tofu ferme', quantity: '150 g' },
@@ -257,7 +247,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: [],
     dietTags: ['omnivore'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'chaud',
     image: '🍗',
     ingredients: [
@@ -283,7 +272,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten', 'Poissons', 'Crustacés', 'Lactose'],
     dietTags: ['omnivore', 'pescetarien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'froid',
     image: '🌯',
     ingredients: [
@@ -308,7 +296,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten', 'Lactose'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: [],
-    highGI: true,
     temperature: 'froid',
     image: '🍝',
     ingredients: [
@@ -333,7 +320,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Soja'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: ['four'],
-    highGI: false,
     temperature: 'froid',
     image: '🥗',
     ingredients: [
@@ -358,7 +344,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Poissons', 'Crustacés'],
     dietTags: ['omnivore', 'pescetarien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'chaud',
     image: '🐟',
     ingredients: [
@@ -383,7 +368,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Soja'],
     dietTags: ['omnivore'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'froid',
     image: '🥙',
     ingredients: [
@@ -408,7 +392,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: [],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'chaud',
     image: '🌶️',
     ingredients: [
@@ -433,7 +416,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Œufs', 'Lactose', 'Poissons', 'Crustacés'],
     dietTags: ['omnivore'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'froid',
     image: '🥗',
     ingredients: [
@@ -458,7 +440,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: [],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'chaud',
     image: '🍛',
     ingredients: [
@@ -483,7 +464,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten', 'Poissons', 'Crustacés', 'Lactose'],
     dietTags: ['omnivore', 'pescetarien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'froid',
     image: '🥯',
     ingredients: [
@@ -508,7 +488,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten', 'Lactose'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: ['four'],
-    highGI: false,
     temperature: 'froid',
     image: '🧆',
     ingredients: [
@@ -532,7 +511,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'froid',
     image: '🌯',
     ingredients: [
@@ -560,7 +538,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: [],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'chaud',
     image: '🍲',
     ingredients: [
@@ -585,7 +562,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Soja', 'Gluten'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'chaud',
     image: '🍜',
     ingredients: [
@@ -610,7 +586,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Poissons', 'Crustacés'],
     dietTags: ['omnivore', 'pescetarien'],
     requiredEquipment: ['four'],
-    highGI: false,
     temperature: 'chaud',
     image: '🐟',
     ingredients: [
@@ -634,7 +609,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: [],
     dietTags: ['omnivore'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'chaud',
     image: '🌶️',
     ingredients: [
@@ -659,7 +633,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Poissons', 'Crustacés'],
     dietTags: ['omnivore', 'pescetarien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'chaud',
     image: '🍤',
     ingredients: [
@@ -684,7 +657,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: [],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'chaud',
     image: '🍛',
     ingredients: [
@@ -709,7 +681,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Œufs'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'chaud',
     image: '🍳',
     ingredients: [
@@ -733,7 +704,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten', 'Fruits à coque', 'Lactose'],
     dietTags: ['omnivore'],
     requiredEquipment: [],
-    highGI: true,
     temperature: 'chaud',
     image: '🍝',
     ingredients: [
@@ -758,7 +728,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Soja'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'chaud',
     image: '🥢',
     ingredients: [
@@ -783,7 +752,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Poissons', 'Crustacés'],
     dietTags: ['omnivore', 'pescetarien'],
     requiredEquipment: ['four'],
-    highGI: false,
     temperature: 'chaud',
     image: '🐟',
     ingredients: [
@@ -808,7 +776,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Lactose'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'froid',
     image: '🥗',
     ingredients: [
@@ -834,7 +801,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten', 'Soja'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     temperature: 'froid',
     image: '🥙',
     ingredients: [
@@ -860,7 +826,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: ['blender'],
-    highGI: false,
     temperature: 'froid',
     image: '🍅',
     ingredients: [
@@ -888,7 +853,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Fruits à coque'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     image: '🍎',
     ingredients: [
       { name: 'Amandes', quantity: '25 g' },
@@ -910,7 +874,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Lactose'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: [],
-    highGI: true,
     image: '🍯',
     ingredients: [
       { name: 'Yaourt grec', quantity: '125 g' },
@@ -932,7 +895,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Soja'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     image: '🥕',
     ingredients: [
       { name: 'Houmous', quantity: '50 g' },
@@ -955,7 +917,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Lactose', 'Gluten'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: [],
-    highGI: false,
     image: '🥣',
     ingredients: [
       { name: 'Fromage blanc', quantity: '150 g' },
@@ -977,7 +938,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Arachides'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: [],
-    highGI: false,
     image: '🍏',
     ingredients: [
       { name: 'Pomme', quantity: '1' },
@@ -999,7 +959,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Œufs'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: [],
-    highGI: false,
     image: '🥚',
     ingredients: [
       { name: 'Œuf', quantity: '2' },
@@ -1021,7 +980,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: [],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien', 'vegetalien'],
     requiredEquipment: ['blender'],
-    highGI: true,
     image: '🥤',
     ingredients: [
       { name: 'Épinards frais', quantity: '30 g' },
@@ -1044,7 +1002,6 @@ export const RECIPE_POOL: RecipeTemplate[] = [
     allergenTags: ['Gluten', 'Fruits à coque'],
     dietTags: ['omnivore', 'pescetarien', 'vegetarien'],
     requiredEquipment: [],
-    highGI: true,
     image: '🍫',
     ingredients: [{ name: 'Barre de céréales', quantity: '1' }],
     steps: ['Servir telle quelle.'],

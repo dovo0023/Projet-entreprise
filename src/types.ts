@@ -88,7 +88,6 @@ export interface RecipeTemplate {
   allergenTags: string[] // subset of ALLERGEN_OPTIONS
   dietTags: DietType[] // régimes que cette recette satisfait (ex. un plat végétalien satisfait les 4)
   requiredEquipment: KitchenEquipment[] // équipement indispensable (hors poêle/casserole) ; 'four' est aussi couvert par un airfryer
-  highGI: boolean // pertinent pour le filtre "contrôle glycémique"
   temperature?: Temperature // midi/soir uniquement : chaud ou froid
   ingredients: Ingredient[]
   steps: string[]
