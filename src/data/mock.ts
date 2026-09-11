@@ -1,4 +1,4 @@
-import type { AdherenceEntry, DietType, Goal, JournalEntry, PersonalRecord, WeightEntry } from '../types'
+import type { AdherenceEntry, DietType, Goal, JournalEntry, LoggedMeal, PersonalRecord, PlannedMealPreview, WeightEntry } from '../types'
 
 export const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 
@@ -61,6 +61,65 @@ export function generatePersonalHistory(seedKey: string, goal: Goal): PersonalRe
   }))
 
   return { weightHistory, adherenceHistory, journalEntries: [] }
+}
+
+const SAMPLE_LUNCHES = [
+  'Bowl de poulet, quinoa et légumes rôtis',
+  'Salade de lentilles et feta',
+  'Wrap au thon et crudités',
+  'Riz sauté aux légumes et œuf',
+  'Pâtes au pesto et tomates cerises',
+  'Curry de pois chiches',
+  'Poke bowl au saumon',
+]
+const SAMPLE_DINNERS = [
+  'Saumon rôti et brocolis vapeur',
+  'Soupe de légumes et pain complet',
+  'Omelette aux champignons',
+  'Poulet basquaise et riz',
+  'Chili sin carne',
+  'Cabillaud vapeur et purée de patate douce',
+  'Gratin de courgettes',
+]
+
+/** Un jour sur deux (jj/mm) du mois précédent "aujourd'hui" (01/09 dans cette maquette), donc août. */
+const PREVIOUS_MONTH_DATES = Array.from({ length: 31 }, (_, i) => `${String(i + 1).padStart(2, '0')}/08`)
+
+/** Génère un historique de repas plausible et stable pour le mois précédent, à titre de démonstration
+ *  du suivi praticien — l'app ne conserve pas encore de vrai journal au-delà de la semaine en cours. */
+export function generateMealHistory(seedKey: string): LoggedMeal[] {
+  return PREVIOUS_MONTH_DATES.flatMap((date, i) => [
+    {
+      date,
+      slot: 'midi' as const,
+      name: SAMPLE_LUNCHES[Math.floor(hash01(seedKey, 100 + i) * SAMPLE_LUNCHES.length)],
+      kcal: Math.round(480 + hash01(seedKey, 200 + i) * 220),
+    },
+    {
+      date,
+      slot: 'soir' as const,
+      name: SAMPLE_DINNERS[Math.floor(hash01(seedKey, 300 + i) * SAMPLE_DINNERS.length)],
+      kcal: Math.round(450 + hash01(seedKey, 400 + i) * 200),
+    },
+  ])
+}
+
+/** La moitié des patients ont déjà généré leur semaine suivante à l'avance (démonstration) ; les autres non. */
+export function generateNextWeekPreview(seedKey: string): PlannedMealPreview[] | null {
+  if (hash01(seedKey, 500) < 0.5) return null
+  const slots: PlannedMealPreview['slot'][] = ['petit-dejeuner', 'midi', 'soir']
+  const names: Record<PlannedMealPreview['slot'], string[]> = {
+    'petit-dejeuner': ['Porridge avoine-banane', 'Skyr aux fruits rouges', 'Tartines avocat-œuf', 'Muesli maison'],
+    midi: SAMPLE_LUNCHES,
+    soir: SAMPLE_DINNERS,
+  }
+  return Array.from({ length: 7 }, (_, dayIdx) =>
+    slots.map((slot, slotIdx) => {
+      const pool = names[slot]
+      const salt = 600 + dayIdx * 10 + slotIdx
+      return { day: dayIdx + 1, slot, name: pool[Math.floor(hash01(seedKey, salt) * pool.length)] }
+    }),
+  ).flat()
 }
 
 /** Les 14 allergènes à déclaration obligatoire reconnus par la réglementation européenne (règlement UE

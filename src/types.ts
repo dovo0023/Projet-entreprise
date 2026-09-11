@@ -204,6 +204,23 @@ export interface Appointment {
   time: string
 }
 
+/** Un repas déjà consommé le mois précédent, tel qu'archivé pour le suivi du praticien — lecture seule.
+ *  L'app ne conserve pas encore un vrai historique au-delà de la semaine en cours ; ces entrées sont des
+ *  données de démonstration générées de façon stable par patient, pas un vrai journal. */
+export interface LoggedMeal {
+  date: string // jj/mm
+  slot: 'midi' | 'soir'
+  name: string
+  kcal: number
+}
+
+/** Aperçu (nom du plat seulement) d'un repas de la semaine suivante, si le patient l'a déjà générée à l'avance. */
+export interface PlannedMealPreview {
+  day: number // 1-7
+  slot: 'petit-dejeuner' | 'midi' | 'soir'
+  name: string
+}
+
 export interface PatientSummary {
   id: string
   name: string
@@ -215,6 +232,9 @@ export interface PatientSummary {
   weightHistory: WeightEntry[]
   adherenceHistory: AdherenceEntry[]
   journalEntries: JournalEntry[]
+  mealHistory: LoggedMeal[]
+  /** null = le patient n'a pas encore généré la semaine suivante à l'avance. */
+  nextWeekPlan: PlannedMealPreview[] | null
   lastCheckIn: string
   linkedToApp: boolean
   riskFlags: string[]

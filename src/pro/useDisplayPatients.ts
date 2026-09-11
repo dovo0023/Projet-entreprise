@@ -28,6 +28,10 @@ export function useDisplayPatients(): PatientSummary[] {
             actualToday: consumed,
             weightHistory: personalRecords[SELF_RECORD_ID]?.weightHistory ?? p.weightHistory,
             journalEntries: personalRecords[SELF_RECORD_ID]?.journalEntries ?? p.journalEntries,
+            // Le moteur ne maintient qu'un seul plan à la fois (celui de la semaine en cours) : la patiente
+            // liée à l'app n'a donc jamais de semaine suivante déjà préparée à l'avance, contrairement aux
+            // patientes de démo (voir generateNextWeekPreview) qui simulent les deux cas de figure.
+            nextWeekPlan: null,
             messages: liveMessages,
           }
         }

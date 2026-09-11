@@ -1,14 +1,14 @@
-import { AlertTriangle, ArrowLeft, Book, Check, Plus, Scale, Send, Smartphone } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Book, Calendar, CalendarClock, Check, Plus, Scale, Send, Smartphone } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { TODAY_LABEL, useApp } from '../../context/AppContext'
-import { ALLERGEN_OPTIONS, DIET_OPTIONS } from '../../data/mock'
+import { ALLERGEN_OPTIONS, DIET_OPTIONS, SHORT_DAYS } from '../../data/mock'
 import { PatientAvatar } from '../../pro/ProLayout'
 import { usePro } from '../../pro/ProContext'
 import { useDisplayPatients } from '../../pro/useDisplayPatients'
-import { Button, MacroBar } from '../../components/ui'
-import type { DietType, Goal, JournalSlot, WeightEntry } from '../../types'
+import { Button } from '../../components/ui'
+import type { DietType, Goal, JournalSlot, PlannedMealPreview, WeightEntry } from '../../types'
 
 const JOURNAL_SLOT_LABEL: Record<JournalSlot, string> = {
   'petit-dejeuner': 'Petit-déjeuner',
@@ -16,6 +16,12 @@ const JOURNAL_SLOT_LABEL: Record<JournalSlot, string> = {
   encas: 'Encas',
   soir: 'Soir',
   autre: 'Autre',
+}
+
+const MEAL_SLOT_SHORT: Record<PlannedMealPreview['slot'], string> = {
+  'petit-dejeuner': 'Matin',
+  midi: 'Midi',
+  soir: 'Soir',
 }
 
 const GOAL_OPTIONS: { value: Goal; label: string }[] = [
@@ -137,13 +143,50 @@ export default function ProPatientDetail() {
       <div className="grid grid-cols-3 gap-5">
         <div className="col-span-2 flex flex-col gap-5">
           <div className="bg-white rounded-3xl border border-black/5 p-5">
-            <p className="text-[13px] font-bold text-ink-soft/70 uppercase tracking-wide mb-3">Aujourd’hui vs cible</p>
-            <div className="flex flex-col gap-3">
-              <MacroBar label="Calories" value={patient.actualToday.kcal} target={patient.targets.kcal} unit=" kcal" color="#1c2321" />
-              <MacroBar label="Protéines" value={patient.actualToday.protein} target={patient.targets.protein} color="#2f9d5f" />
-              <MacroBar label="Glucides" value={patient.actualToday.carbs} target={patient.targets.carbs} color="#f7822a" />
-              <MacroBar label="Lipides" value={patient.actualToday.fat} target={patient.targets.fat} color="#e14f74" />
+            <div className="flex items-center gap-2 mb-3">
+              <Calendar size={14} className="text-leaf-600" />
+              <p className="text-[13px] font-bold text-ink-soft/70 uppercase tracking-wide">Repas du mois précédent</p>
             </div>
+            <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto pr-1">
+              {patient.mealHistory.map((m, i) => (
+                <div key={i} className="flex items-center gap-3 bg-black/[0.03] rounded-xl px-3 py-2">
+                  <span className="text-[11px] font-bold text-ink-soft/50 w-11 shrink-0">{m.date}</span>
+                  <span className="text-[10px] font-bold text-leaf-600 uppercase tracking-wide w-11 shrink-0">{MEAL_SLOT_SHORT[m.slot]}</span>
+                  <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-ink truncate">{m.name}</span>
+                  <span className="text-[11px] text-ink-soft/50 shrink-0">{m.kcal} kcal</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-black/5 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <CalendarClock size={14} className="text-leaf-600" />
+              <p className="text-[13px] font-bold text-ink-soft/70 uppercase tracking-wide">Semaine suivante</p>
+            </div>
+            {patient.nextWeekPlan ? (
+              <div className="flex flex-col gap-1.5">
+                {SHORT_DAYS.map((dayLabel, idx) => {
+                  const dayNum = idx + 1
+                  const dayMeals = patient.nextWeekPlan!.filter((m) => m.day === dayNum)
+                  return (
+                    <div key={dayNum} className="flex items-start gap-3 bg-black/[0.03] rounded-xl px-3 py-2">
+                      <span className="text-[11px] font-bold text-ink-soft/50 w-9 shrink-0 pt-0.5">{dayLabel}</span>
+                      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                        {dayMeals.map((m, i) => (
+                          <p key={i} className="text-[12px] text-ink truncate">
+                            <span className="text-ink-soft/50">{MEAL_SLOT_SHORT[m.slot]} · </span>
+                            {m.name}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-[12.5px] text-ink-soft/50 italic">Pas encore créée par le patient.</p>
+            )}
           </div>
 
           <div className="bg-white rounded-3xl border border-black/5 p-5">
