@@ -2,6 +2,7 @@
 
 @theme {
   --font-sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Fredoka", "Manrope", system-ui, sans-serif;
 
   --color-cream: #faf8f3;
   --color-ink: #1c2321;
@@ -22,6 +23,35 @@
   --color-berry-100: #fde8ec;
   --color-berry-400: #ef6b8b;
   --color-berry-500: #e14f74;
+
+  /* Identité "espace praticien" (issue du deck de présentation congrès) : distincte de la palette
+     patiente ci-dessus, pour un rendu plus premium côté pro sans changer le reste de l'app. */
+  --color-pro-bg: #fbf7ed;
+  --color-pro-surface: #ffffff;
+  --color-pro-ink: #12172b;
+  --color-pro-ink-soft: #555f78;
+
+  --color-pro-blue-50: #eceefd;
+  --color-pro-blue-100: #dde1fc;
+  --color-pro-blue-500: #3d4ef0;
+  --color-pro-blue-600: #2f3ed9;
+  --color-pro-blue-700: #2532ad;
+
+  --color-pro-coral-100: #fbe4de;
+  --color-pro-coral-500: #f2694e;
+  --color-pro-coral-600: #db5238;
+
+  --color-pro-mint-100: #d9f2e6;
+  --color-pro-mint-500: #2e9d66;
+  --color-pro-mint-600: #247d51;
+
+  --color-pro-gold-100: #fbecc0;
+  --color-pro-gold-500: #dda61a;
+  --color-pro-gold-600: #b6870f;
+
+  --color-pro-lavender-100: #eae6fb;
+  --color-pro-lavender-500: #8f7fe0;
+  --color-pro-lavender-600: #7566c9;
 }
 
 :root {
@@ -72,4 +102,74 @@ body {
 }
 .fade-up {
   animation: fade-up 320ms ease both;
+}
+
+/* ---- Espace praticien : micro-interactions subtiles ---- */
+@keyframes pro-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.pro-rise {
+  animation: pro-rise 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pro-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.pro-pop {
+  animation: pro-pop 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pro-drift {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(14px, -10px);
+  }
+}
+.pro-drift {
+  animation: pro-drift 9s ease-in-out infinite;
+}
+.pro-drift-slow {
+  animation: pro-drift 13s ease-in-out infinite reverse;
+}
+
+.pro-card {
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms ease, border-color 220ms ease;
+}
+.pro-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -14px rgba(18, 23, 43, 0.18);
+}
+
+.pro-nav-item {
+  position: relative;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .pro-rise,
+  .pro-pop,
+  .pro-drift,
+  .pro-drift-slow {
+    animation: none !important;
+  }
+  .pro-card:hover {
+    transform: none;
+  }
 }

@@ -1,0 +1,26 @@
+import { useEffect, useState } from 'react'
+
+/** Anime un nombre de 0 vers `target` (ex. les compteurs du tableau de bord praticien). Respecte
+ *  prefers-reduced-motion en affichant directement la valeur finale, sans animation. */
+export function useCountUp(target: number, duration = 700): number {
+  const [value, setValue] = useState(0)
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setValue(target)
+      return
+    }
+    let frame: number
+    const start = performance.now()
+    function tick(now: number) {
+      const progress = Math.min(1, (now - start) / duration)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setValue(Math.round(target * eased))
+      if (progress < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [target, duration])
+
+  return value
+}
